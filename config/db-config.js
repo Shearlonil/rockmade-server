@@ -1,0 +1,76 @@
+const { Sequelize } = require('sequelize');
+const sequelize = require('./sequelize-db-connect');
+
+const db = {};
+
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
+
+db.users = require('../entities/users')(sequelize, Sequelize);
+db.courses = require('../entities/courses')(sequelize, Sequelize);
+db.holes = require('../entities/holes')(sequelize, Sequelize);
+db.contests = require('../entities/contests')(sequelize, Sequelize);
+db.tblJoinHolesContests = require('../entities/tbl-join-holes-contests')(sequelize, Sequelize, db.holes, db.contests);
+db.staff = require('../entities/staff')(sequelize, Sequelize);
+db.staffAuths = require('../entities/staff-authority')(sequelize, Sequelize);
+db.tblJoinStaffAuths = require('../entities/tblJoinStaffAuths')(sequelize, Sequelize, db.staff, db.staffAuths);
+db.mailOTP = require('../entities/mail-otp')(sequelize, Sequelize);
+db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
+db.notifications = require('../entities/notification')(sequelize, Sequelize);
+
+// OneToMany relationship between courses and holes
+db.courses.hasMany(db.holes, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'course_id',
+        allowNull: false,
+    }
+});
+db.holes.belongsTo(db.courses, {
+    foreignKey: {
+        name: 'course_id',
+        allowNull: false,
+    }
+});
+
+// ManyToMany relationship between contests and holes
+db.contests.belongsToMany(db.holes, {
+    as: 'hole',
+    through: db.tblJoinHolesContests,
+    foreignKey: 'contest_id',
+    otherKey: 'hole_id',
+    onDelete: 'CASCADE',
+});
+db.holes.belongsToMany(db.contests, {
+    as: 'contest',
+    through: db.tblJoinHolesContests,
+    foreignKey: 'hole_id',
+    otherKey: 'contest_id',
+});
+
+// ManyToMany relationship between staff and authorities
+db.staff.belongsToMany(db.staffAuths, { 
+    onDelete: 'CASCADE',
+    through: db.tblJoinStaffAuths,
+    foreignKey: 'staff_id',
+    otherKey: 'auth_id'
+});
+db.staffAuths.belongsToMany(db.staff, { 
+    through: db.tblJoinStaffAuths,
+    foreignKey: 'auth_id',
+    otherKey: 'staff_id'
+});
+
+db.connect = async () => {
+    try {
+        await sequelize.authenticate();
+        /*  This checks what is the current state of the table in the database (which columns it has, what are their data types, etc), 
+            and then performs the necessary changes in the table to make it match the model.
+        */
+        // await sequelize.sync( { alter: true } );
+    } catch (error) {
+        console.error('Unable to connect to the database:', error);
+    }
+};
+
+module.exports = db;

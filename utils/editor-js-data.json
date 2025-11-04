@@ -1,0 +1,22 @@
+{
+  "time": 1716461173443,
+  "blocks": [
+    {
+      "id": "8DpsZfUHO2",
+      "data": { "text": "Variables and Data Types + Constants", "level": 2 },
+      "type": "header"
+    },
+    {
+      "id": "5CH6h80Y3U",
+      "data": {
+        "items": [
+          "Donec in sapien volutpat, venenatis elit vel, tristique eros. Donec suscipit vehicula tincidunt. Etiam ac finibus lacus, nec cursus nisi. Suspendisse potenti. Phasellus eleifend risus ornare leo mollis blandit. Morbi et viverra diam, sed rhoncus sapien. Sed volutpat nibh massa, sed accumsan tortor pharetra cursus. Phasellus ornare neque nec urna dignissim eleifend. Vivamus eget placerat erat. Sed eleifend tempor <i><b>porttitor</b></i>.",
+          "Curabitur sagittis urna ac velit auctor placerat. Nam massa lacus, interdum quis purus id, eleifend sollicitudin mauris. Nulla posuere dui ut mi imperdiet, et sodales ligula ullamcorper. Aliquam aliquam suscipit urna. Curabitur lacinia congue congue. Nunc sagittis, neque at tristique hendrerit, ante dolor posuere nibh, eget pretium massa metus a nibh. Etiam ligula felis, viverra nec quam sed, posuere congue <b><i>turpis</i></b>."
+        ],
+        "style": "unordered"
+      },
+      "type": "list"
+    }
+  ],
+  "version": "2.29.1"
+}

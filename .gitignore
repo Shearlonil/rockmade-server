@@ -1,0 +1,31 @@
+# Logs
+.env
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+#package-lock.json isn't needed to be monitored
+package-lock.json
+# db credentials can't be made public in git repo
+sequelize-db-connect.js
+
+node_modules
+dist
+build
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
