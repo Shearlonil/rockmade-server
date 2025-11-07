@@ -57,6 +57,11 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true,
         },
+        hcp: {
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
     }, {
         tableName: 'users',
         timestamps: true,

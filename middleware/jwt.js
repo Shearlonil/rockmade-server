@@ -23,12 +23,15 @@ const verifyOTPtoken = (client, token) => {
 }
 
 const createStaffAccessToken = (staff) => {
+    const authorities = [];
+    staff.Authorities.forEach( auth => authorities.push(auth.dataValues.code) );
     return jwt.sign({
         "whom": {
             id: staff.id,
             fname: staff.fname,
             lname: staff.lname,
             email: staff.email,
+            roles: authorities
         },
     }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '10m'} );
 }

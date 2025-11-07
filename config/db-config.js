@@ -23,6 +23,36 @@ db.mailOTP = require('../entities/mail-otp')(sequelize, Sequelize);
 db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
 db.notifications = require('../entities/notification')(sequelize, Sequelize);
 
+// OneToMany relationship between staff and courses
+db.staff.hasMany(db.courses, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+db.courses.belongsTo(db.staff, {
+    foreignKey: {
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+
+// OneToMany relationship between courses and users specifying Home club
+db.courses.hasMany(db.users, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'course_id',
+        allowNull: false,
+    }
+});
+db.users.belongsTo(db.courses, {
+    foreignKey: {
+        name: 'course_id',
+        allowNull: false,
+    }
+});
+
 // OneToMany relationship between courses and holes
 db.courses.hasMany(db.holes, {
     foreignKey: {

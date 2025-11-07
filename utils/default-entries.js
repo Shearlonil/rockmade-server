@@ -1,14 +1,15 @@
 module.exports = {
     // ref: https://www.prospects.ac.uk/jobs-and-work-experience/job-sectors
     bora: {
-        fname: "Ibrahim",
-        lname: "Adubi",
+        fname: "Genius",
+        lname: "Computers",
         phone: "08034262759",
-        email: "shearlonil@gmail.com",
+        email: "geecomptech@gmail.com",
         sex: "M",
         acc_creator: 1,
     },
     // 100 series => users/staff
+    // 200 series => golf course
     // 300 series => clients
     // 400 series => miscellaneous
     authorities: {
@@ -28,7 +29,7 @@ module.exports = {
             desc: "Ability to add/remove staff roles/authorities",
         },
         viewStaff: {
-            name: "View Registered Users",
+            name: "View Registered Staff",
             code: 103,
             desc: "View all registered staff accounts",
         },
@@ -36,6 +37,21 @@ module.exports = {
             name: "Staff Search",
             code: 104,
             desc: "Search Staff by ID or Email",
+        },
+        createCourse: {
+            name: "Add Golf Courses",
+            code: 200,
+            desc: "Add/Create Golf Courses",
+        },
+        deleteCourse: {
+            name: "Delete Golf Courses",
+            code: 201,
+            desc: "Delete Golf Courses",
+        },
+        updateCourse: {
+            name: "Update/Edit Golf Courses",
+            code: 202,
+            desc: "Update/Edit Golf Courses",
         },
         viewClients: {
             name: "View Clients",

@@ -37,7 +37,7 @@ module.exports = (sequelize, Sequelize) => {
         hole_mode: {
             /*  1   => full 18
                 2   => front 9
-                2   => back 9
+                3   => back 9
             */
             type: Sequelize.INTEGER,
             allowNull:false,
