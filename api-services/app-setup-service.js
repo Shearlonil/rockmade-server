@@ -1,4 +1,4 @@
-const db = require('../config/db-config');
+const db = require('../config/entities-config');
 const bcrypt = require('bcryptjs');
 
 const { bora, authorities, industries, locations, experienceLevel, qualifications } = require('../utils/default-entries');

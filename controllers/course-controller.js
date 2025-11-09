@@ -13,6 +13,7 @@ const createGolf = async (req, res) => {
         await courseService.createGolfCourse(req.whom.id, req.body);
         res.sendStatus(200);
     } catch (error) {
+        console.log(error);
         return res.status(400).json({'message': error.message});
     }
 };

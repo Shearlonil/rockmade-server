@@ -1,27 +1,27 @@
-/*  Model to represent Join table for holes and contests.  */
+/*  Model to represent Join table for users and games.  */
 module.exports = (sequelize, Sequelize, hole, contest) => {
   
-    const tblJoinHolesContests = sequelize.define('tblJoinHolesContests', {
-        hole_id: {
+    const tblJoinUsersGames = sequelize.define('tblJoinUsersGames', {
+        user_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
             references: {
-                model: hole, // database table name would also work
+                model: user, // database table name would also work
                 key: 'id',
             }, 
         },
-        contest_id: {
+        game_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
             references: {
-                model: contest, // database table name would also work
+                model: game, // database table name would also work
                 key: 'id',
             },
         }
     }, {
         freezeTableName: true,
-        tableName: 'jt_holes_contests',
+        tableName: 'jt_users_games',
         timestamps: false,
     });  
-    return tblJoinHolesContests;
+    return tblJoinUsersGames;
 };

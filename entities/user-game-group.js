@@ -16,16 +16,6 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
-        user_id: {
-            type: Sequelize.BIGINT,
-            allowNull:false,
-            notEmpty: true
-        },
-        game_id: {
-            type: Sequelize.BIGINT,
-            allowNull:false,
-            notEmpty: true
-        },
     }, {
         tableName: 'user_game_group',
         timestamps: true,

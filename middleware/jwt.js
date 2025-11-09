@@ -22,6 +22,20 @@ const verifyOTPtoken = (client, token) => {
     );
 }
 
+const createClientAccessToken = (client) => {
+    return jwt.sign({
+        "whom": {
+            id: client.id,
+            fname: client.fname,
+            lname: client.lname,
+            gender: client.gender,
+            email: client.email,
+            phone: client.phone,
+            regDate: client.createdAt,
+        },
+    }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '10m'} );
+}
+
 const createStaffAccessToken = (staff) => {
     const authorities = [];
     staff.Authorities.forEach( auth => authorities.push(auth.dataValues.code) );
@@ -80,21 +94,40 @@ const handleRefresh = (req, res) => {
             if(err) {
                 return res.sendStatus(403); // Forbidden
             }
-            // find staff with email
-            const staff = await staffService.findByEmail(decrypt(decoded.whom.iv));
-            // check status
-            if(!staff || staff.status === false){
-                // if account deactivated, clear cookies
-                res.clearCookie('session', { httpOnly: true, sameSite: 'None', secure: true });
-                return res.sendStatus(403);
+            // create a new access token based on mode and send back to front end
+            if(decoded.whom.mode === 0){
+                // find staff with email
+                const staff = await staffService.findByEmail(decrypt(decoded.whom.iv));
+                // check status
+                if(!staff || staff.status === false){
+                    // if account deactivated, clear cookies
+                    res.clearCookie('session', { httpOnly: true, sameSite: 'None', secure: true });
+                    return res.sendStatus(403);
+                }
+                // create jwt access token
+                const accessToken = createStaffAccessToken(staff);
+                //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+                res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+                // res.setHeader("X-Suggested-Filename", originalname);
+                res.setHeader('authorization', 'Bearer ' + accessToken);
+                res.sendStatus(200);
+            }else {
+                // find client with email
+                const client = await clientService.findByEmail(decrypt(decoded.whom.iv));
+                // check status
+                if(!client || client.status === false){
+                    // if account deactivated, clear cookies
+                    res.clearCookie('session', { httpOnly: true, sameSite: 'None', secure: true });
+                    return res.sendStatus(403);
+                }
+                // create jwt access token
+                const accessToken = createClientAccessToken(client);
+                //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+                res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+                // res.setHeader("X-Suggested-Filename", originalname);
+                res.setHeader('authorization', 'Bearer ' + accessToken);
+                res.sendStatus(200);
             }
-            // create jwt access token
-            const accessToken = createStaffAccessToken(staff);
-            //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
-            res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-            // res.setHeader("X-Suggested-Filename", originalname);
-            res.setHeader('authorization', 'Bearer ' + accessToken);
-            res.sendStatus(200);
         }
     );
 }
@@ -159,6 +192,7 @@ module.exports = {
     createOTPtoken,
     verifyOTPtoken,
     verifyAccessToken,
+    createClientAccessToken,
     createStaffAccessToken,
     createRefreshToken,
     handleRefresh,

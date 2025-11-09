@@ -1,4 +1,4 @@
-const db = require('../config/db-config');
+const db = require('../config/entities-config');
 const bcrypt = require('bcryptjs');
 const otpMailService = require('./mail-otp-service');
 const generateOTP = require('../utils/otp-generator');

@@ -7,13 +7,13 @@ const mimetype = require('./mime-types.json');
     1024 * 1024 = 1 mb
     20 * 1024 * 1024 = 20MB
 */   
-const MAX_UPLOAD_SIZE = 0.5 * 1024 * 1024;  // 512KB
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;  // 512KB
 // configure multer to save files to disk.
 const fileStorageEngine = multer.diskStorage({
   
     // configure the destination directory 
     destination: (req, file, cb) => {
-        cb(null, 'file-upload');
+        cb(null, 'images');
     },
   
     // configure the destination filename
@@ -32,7 +32,7 @@ const uploadSingleFile = multer({
     // skip any files that do not meet the validation criteria
     fileFilter: ( req, file, callback ) => {
         
-        if ( file.mimetype !== mimetype['jpg'] && file.mimetype !== mimetype['jpeg']) {
+        if ( file.mimetype !== mimetype['jpg'] && file.mimetype !== mimetype['jpeg'] ) {
         
             // Store a flag to denote that this file is invalid.
             // Unlike `res.locals`, `req.locals` is not really 
@@ -51,9 +51,9 @@ const uploadSingleFile = multer({
     }, 
     limits: { fileSize: MAX_UPLOAD_SIZE }
 
-}).single( "file" );
+}).single( "img" );
 
-const multerFileUpload = ( req, res, next ) => {
+const multerImgUpload = ( req, res, next ) => {
     // `uploadSingleFile` is a middleware but we use it here 
     // inside the route handler because we want to handle errors.
     uploadSingleFile( req, res, err => {      
@@ -63,7 +63,7 @@ const multerFileUpload = ( req, res, next ) => {
             return res.status( 400 ).json({ 
                 status: "error", 
                 // message: err
-                message: `Invalid file format or file size too large. Please upload the required file type not greater than 512KB.` 
+                message: `${err.message}` 
             });
         }
   
@@ -80,4 +80,4 @@ const multerFileUpload = ( req, res, next ) => {
     });
 };
 
-module.exports = multerFileUpload;
+module.exports = multerImgUpload;

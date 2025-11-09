@@ -14,7 +14,9 @@ module.exports = (sequelize, Sequelize) => {
         name: {
             type: Sequelize.STRING,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            //  course name must be unique
+            unique: true
         },
         no_of_holes: {
             type: Sequelize.INTEGER,
@@ -25,6 +27,11 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true
+        },
+        status: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: true,
+            allowNull:false,
         },
     }, {
         tableName: 'courses',

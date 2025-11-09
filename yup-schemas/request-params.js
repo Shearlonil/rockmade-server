@@ -16,7 +16,7 @@ const routeEmailParamSchema = yup.string().matches(email_regx, 'A valid email fo
 
 const routePasswordParamSchema = yup.string().min(6, 'Password must be a minimum of 6 characters').required("Password must be a min of 6 characters!");
 
-const routeStringMiscParamSchema = yup.string().max(255, "Maximum of 255 characters").required("String Required");
+const routeStringMiscParamSchema = yup.string().max(255, "Maximum of 255 characters").required("Text Required");
 
 const routeBooleanParamSchema = yup.bool().required("Boolean Required");
 

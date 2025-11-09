@@ -28,8 +28,8 @@ module.exports = (sequelize, Sequelize) => {
         },
     }, {
         tableName: 'holes',
-        timestamps: true,
-        createdAt: true,
+        timestamps: false,
+        createdAt: false,
         updatedAt: false
     });  
     return Holes;

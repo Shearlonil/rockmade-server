@@ -14,7 +14,14 @@ module.exports = (sequelize, Sequelize) => {
         name: {
             type: Sequelize.STRING,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            //  contest name must be unique
+            unique: true
+        },
+        status: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: true,
+            allowNull:false,
         },
     }, {
         tableName: 'contests',

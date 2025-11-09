@@ -1,11 +1,10 @@
 const yup = require("yup");
 
-let email_regx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-
 const holeSchema = yup.object().shape({
-    hole_number: yup.number().required("Hole Number is required"),
+    hole_no: yup.number().required("Hole Number is required"),
     hcp: yup.number().min(1, "Stroke Index must be at least 1").required("Stroke Index is required"),
     par: yup.number().positive("PAR must be positive").required("PAR is required"),
+    contests: yup.array(),
 });
 
 const schema = yup.object().shape({

@@ -1,4 +1,4 @@
-const db = require('../config/db-config');
+const db = require('../config/entities-config');
 const { Op } = require('sequelize');
 
 const MailOTP = db.mailOTP;

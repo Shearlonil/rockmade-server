@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs');
 const express = require('express');
 const router = express.Router();
+const nodemailer = require("nodemailer");
+
 const clientService = require('../api-services/client-service');
 const staffService = require('../api-services/staff-service');
 const otpMailService = require('../api-services/mail-otp-service');
 const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
-const nodemailer = require("nodemailer");
 const generateOTP = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
 
@@ -93,7 +94,7 @@ const otp = async (req, res) => {
     const oneTimePass = generateOTP(6);
     // create jwt token from otp
     const token = createOTPtoken(oneTimePass);
-
+    
     const transporter = nodemailer.createTransport({
         host: process.env.MAIL_SERVICE_HOST,
         port: 465,
@@ -102,25 +103,23 @@ const otp = async (req, res) => {
             user: process.env.MAIL_AUTH_USER,
             pass: process.env.MAIL_AUTH_USER_PASSWORD,
         },
+        tls: {
+            // do not fail on invalid certs
+            rejectUnauthorized: false,
+        },
     });
     // Configure the mailoptions object
     const mailOptions = {
         from: process.env.MAIL_AUTH_USER,
         to: email,
         subject: 'OTP',
-        text: `This message is from The Advancement Place, please use the token ${oneTimePass} to continue your registration process.`
+        text: `This message is from RockMade Golf, please use the token ${oneTimePass} to continue your registration process.`
     };
     
     // Send the email
-    transporter.sendMail(mailOptions, async (error, info) => {
-        if (error) {
-            res.status(500).json({'message': error.response });
-        } else {
-            // save email and associated token
-            await otpMailService.saveOrUpdate(email, token);
-            res.status(200).json({'message': 'OTP sent successfully\nIf not found in your inbox, please check your spam'});
-        }
-    });
+    await transporter.sendMail(mailOptions);
+    // save email and associated token
+    await otpMailService.saveOrUpdate(email, token);
 }
 
 const refresh = async (req, res) => {

@@ -53,6 +53,21 @@ module.exports = {
             code: 202,
             desc: "Update/Edit Golf Courses",
         },
+        createContest: {
+            name: "Add Golf Contests",
+            code: 200,
+            desc: "Add/Create Golf Contests",
+        },
+        deleteActivateContest: {
+            name: "Delete/Activate Golf Contests",
+            code: 201,
+            desc: "Delete/Activate Golf Contests",
+        },
+        updateContest: {
+            name: "Update/Edit Golf Contests",
+            code: 202,
+            desc: "Update/Edit Golf Contests",
+        },
         viewClients: {
             name: "View Clients",
             code: 300,

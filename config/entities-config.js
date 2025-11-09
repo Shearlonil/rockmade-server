@@ -128,6 +128,36 @@ db.holeScores.belongsTo(db.gameHoleRecords, {
     }
 });
 
+// OneToMany relationship between staff and contests
+db.staff.hasMany(db.contests, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+db.contests.belongsTo(db.staff, {
+    foreignKey: {
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+
+// ManyToMany relationship between users and games (using groups as user must be in a group to play a game)
+db.users.belongsToMany(db.games, {
+    as: 'game',
+    through: db.userGameGroup,
+    foreignKey: 'user_id',
+    otherKey: 'game_id',
+    onDelete: 'CASCADE',
+});
+db.games.belongsToMany(db.users, {
+    as: 'user',
+    through: db.userGameGroup,
+    foreignKey: 'game_id',
+    otherKey: 'user_id',
+});
+
 // ManyToMany relationship between contests and holes
 db.contests.belongsToMany(db.holes, {
     as: 'hole',

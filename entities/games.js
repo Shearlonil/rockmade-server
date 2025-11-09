@@ -14,7 +14,9 @@ module.exports = (sequelize, Sequelize) => {
         name: {
             type: Sequelize.STRING,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            //  game name must be unique
+            unique: true
         },
         date: {
             type: Sequelize.DATEONLY,
@@ -38,6 +40,15 @@ module.exports = (sequelize, Sequelize) => {
             /*  1   => full 18
                 2   => front 9
                 3   => back 9
+            */
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
+        status: {
+            /*  1   => yet to start
+                2   => in play
+                3   => completed
             */
             type: Sequelize.INTEGER,
             allowNull:false,

@@ -15,6 +15,7 @@
     "license": "ISC",
     "dependencies": {
         "bcryptjs": "^3.0.3",
+        "blurhash": "^2.0.5",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
         "dotenv": "^17.2.3",
@@ -24,6 +25,7 @@
         "mysql2": "^3.15.3",
         "nodemailer": "^7.0.10",
         "sequelize": "^6.37.7",
+        "sharp": "^0.33.5",
         "yup": "^1.7.1"
     }
 }

@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 
 const corsOptions = require('./config/cors-options');
-const db = require('./config/db-config');
+const db = require('./config/entities-config');
 const setUp = require('./api-services/app-setup-service');
 const credentials = require('./middleware/credentials');
 
@@ -38,6 +38,8 @@ app.use(cookieParser());
 app.use('/auth', require('./controllers/authentication-controller'));
 app.use('/staff', require('./controllers/staff-controller'));
 app.use('/courses', require('./controllers/course-controller'));
+app.use('/contests', require('./controllers/contest-controller'));
+app.use('/users', require('./controllers/client-controller'));
 
 /*  ref: https://stackoverflow.com/questions/27928372/react-router-urls-dont-work-when-refreshing-or-writing-manually
     check neeraj-dixit27's solution on the above thread
