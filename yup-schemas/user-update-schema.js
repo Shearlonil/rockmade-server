@@ -5,6 +5,7 @@ let email_regx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@
 const schema = yup.object().shape({
     fname: yup.string().required("First Name is required!"),
     lname: yup.string().required("Last Name is required!"),
+    country_id: yup.number().required("Country is required!"),
     email: yup
         .string()
         .email()

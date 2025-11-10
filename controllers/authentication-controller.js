@@ -120,6 +120,7 @@ const otp = async (req, res) => {
     await transporter.sendMail(mailOptions);
     // save email and associated token
     await otpMailService.saveOrUpdate(email, token);
+    return res.status(200).json({'message': 'OTP sent'});
 }
 
 const refresh = async (req, res) => {

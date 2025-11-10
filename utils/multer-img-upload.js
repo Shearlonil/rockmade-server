@@ -49,7 +49,7 @@ const uploadSingleFile = multer({
         callback( null, true );
 
     }, 
-    limits: { fileSize: MAX_UPLOAD_SIZE }
+    // limits: { fileSize: MAX_UPLOAD_SIZE }
 
 }).single( "img" );
 

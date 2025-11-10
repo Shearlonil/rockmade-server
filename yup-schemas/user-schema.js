@@ -18,6 +18,7 @@ const schema = yup.object().shape({
         .string()
         .min(6)
         .required("Password must be a min of 6 characters!"),
+    country_id: yup.number().required("Country is required!"),
     hcp: yup.number().required('HCP is required'),
     hc_id: yup.number().required('Home Club is required'),
     // otp sent to mail for registration

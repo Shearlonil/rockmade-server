@@ -7,6 +7,7 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
 db.users = require('../entities/users')(sequelize, Sequelize);
+db.blurHash = require('../entities/client_blurhash')(sequelize, Sequelize);
 db.courses = require('../entities/courses')(sequelize, Sequelize);
 db.games = require('../entities/games')(sequelize, Sequelize);
 db.holes = require('../entities/holes')(sequelize, Sequelize);
@@ -20,6 +21,7 @@ db.staff = require('../entities/staff')(sequelize, Sequelize);
 db.staffAuths = require('../entities/staff-authority')(sequelize, Sequelize);
 db.tblJoinStaffAuths = require('../entities/tblJoinStaffAuths')(sequelize, Sequelize, db.staff, db.staffAuths);
 db.mailOTP = require('../entities/mail-otp')(sequelize, Sequelize);
+db.countries = require('../entities/country')(sequelize, Sequelize);
 db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
 db.notifications = require('../entities/notification')(sequelize, Sequelize);
 
@@ -35,6 +37,37 @@ db.courses.belongsTo(db.staff, {
     foreignKey: {
         name: 'creator_id',
         allowNull: false,
+    }
+});
+
+// OneToMany relationship between countries and users
+db.countries.hasMany(db.users, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'country_id',
+        allowNull: false,
+    }
+});
+db.users.belongsTo(db.countries, {
+    foreignKey: {
+        name: 'country_id',
+        allowNull: false,
+    }
+});
+
+// OneToOne relationship between client and their dp's (if any) blurhash
+db.users.hasOne(db.blurHash, {
+    onDelete: 'CASCADE',
+    foreignKey: {
+        name: 'user_id',
+        allowNull: false
+    }
+});
+db.blurHash.belongsTo(db.users, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column ClientId
+        name: 'user_id',
+        allowNull: false
     }
 });
 

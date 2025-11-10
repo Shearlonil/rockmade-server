@@ -1,11 +1,19 @@
 const db = require('../config/entities-config');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const fs = require('fs');
+const fsPromises = require('fs').promises;
+const { subDays } = require('date-fns');
+
 const generateOTP = require('../utils/otp-generator');
+const {compress, encodeImageToBlurhash} = require('../utils/img-compression-agent');
 
 const User = db.users;
 const Course = db.courses;
+const Country = db.countries;
 const MailOTP = db.mailOTP;
+const BlurHash = db.blurHash;
 
 const findById = async id => {
     return await User.findByPk(id, {
@@ -14,6 +22,9 @@ const findById = async id => {
             {
                 model: Course,
                 where: { status : true },
+            },
+            {
+                model: BlurHash,
             }
         ]
     });
@@ -26,6 +37,9 @@ const findByEmail = async email => {
         include: [
             {
                 model: Course,
+            },
+            {
+                model: BlurHash,
             }
         ]
     });
@@ -38,6 +52,11 @@ const findForPassWord = async id => {
 
 const updateEmail = async (id, email) => {
     const mail = email.trim();
+    // find client from db using id in request parameter
+    const client = await User.findByPk(id);
+    if(!client) {
+        throw new Error("Account Not Found");
+    }
     try {
         await db.sequelize.transaction( async (t) => {
             await User.update({ email: mail }, {
@@ -89,32 +108,53 @@ const resetPassword = async (data) => {
 }
 
 const register = async client => {
-    const { fname, lname, pw, email, gender, phone, hcp, hc_id, dp } = client;
+    const { fname, lname, pw, email, gender, phone, hcp, hc_id, country_id, dp } = client;
     const f_name = fname.trim();
     const l_name = lname.trim();
     const mail = email.trim();
     // find if email is already registered
     const user = await User.findOne({ where: { email } });
-    const course =  await User.findByPk(hc_id);
+    const course =  await Course.findByPk(hc_id);
+    const country = await Country.findByPk(country_id);
     
     if(user) {
         throw new Error("Email is already registered");
     }
     
     if(course === null) {
-        throw new Error("Invalid Golf Course specified");
+        throw new Error("Invalid Golf Course specified as Home Club");
     }
+    
+    if(country === null) {
+        throw new Error("Invalid Country specified");
+    }
+
+    const yesterday = subDays(new Date(), 1); // Subtracts 1 day from today to use as sub_expiration
 
     // encrypt password
     const hashedPwd = await bcrypt.hash(pw, 12);
     try {
         return await db.sequelize.transaction( async (t) => {
-            const client = await User.create({ fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, phone, hcp, course_id: hc_id }, { transaction: t });
+            const c = await User.create(
+                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, phone, hcp, course_id: hc_id, sub_expiration: yesterday, country_id }
+                , { transaction: t }
+            );
+            if(dp){
+                client.id = c.id;
+                const buf = await compress(path.join(__dirname, "..", "images", dp.filename));
+                await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", c.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
+                const encodedHash = await encodeImageToBlurhash(path.join(__dirname, "..", "dp-upload", c.id + '.webp'));
+                await BlurHash.create({blur_hash: encodedHash.hash, user_id: c.id}, { transaction: t });
+            }
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email } }, { transaction: t });
-            return client;
+            return c;
         });
     } catch (error) {
+        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.id + '.webp' )) ){
+            // delete compressed image
+            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.id + '.webp'));
+        }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 
@@ -122,14 +162,25 @@ const register = async client => {
 };
 
 const update = async (id, profile) => {
-    const { fname, lname, phone, gender, hcp, hc_id } = profile;
+    const { fname, lname, phone, gender, hcp, hc_id, country_id } = profile;
     const f_name = fname.trim();
     const l_name = lname.trim();
+
+    const course =  await Course.findByPk(hc_id);
+    const country = await Country.findByPk(country_id);
+    
+    if(course === null) {
+        throw new Error("Invalid Golf Course specified as Home Club");
+    }
+    
+    if(country === null) {
+        throw new Error("Invalid Country specified");
+    }
     // find client to use in sequelize transaction and setter for industries (ManyToMany) below
     const client = await User.findByPk(id);
     try {
         await db.sequelize.transaction( async (t) => {
-            await client.update({ fname: f_name, lname: l_name, phone, gender, hcp, course_id: hc_id }, {
+            await client.update({ fname: f_name, lname: l_name, phone, gender, hcp, course_id: hc_id, country_id }, {
                 where: { id },
                 returning: true,
                 transaction: t

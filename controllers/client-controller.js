@@ -4,20 +4,22 @@ const nodemailer = require("nodemailer");
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const { encode } = require('blurhash');
-const sharp = require("sharp");
 
+const { authorities } = require('../utils/default-entries');
+const preAuthorize = require('../middleware/verify-authorities');
 const { verifyAccessToken, verifyOTPtoken, createClientAccessToken, createRefreshToken } = require('../middleware/jwt');
 const validate = require('../middleware/schemer-validator');
 const multerImgUpload = require('../utils/multer-img-upload');
 const schema = require('../yup-schemas/user-schema');
+const updateSchema = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema } = require('../yup-schemas/request-params');
+const clientService = require('../api-services/client-service');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routePasswordParamSchema, routeStringMiscParamSchema } = require('../yup-schemas/request-params');
 
 const findById = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await cilentService.findById(req.params.id));
+        res.status(200).json(await clientService.findById(req.params.id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -25,7 +27,7 @@ const findById = async (req, res) => {
 
 const myProfile = async (req, res) => {
     try {
-        res.status(200).json(await cilentService.findById(req.whom.id));
+        res.status(200).json(await clientService.findById(req.whom.id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -34,40 +36,29 @@ const myProfile = async (req, res) => {
 const findByEmail = async (req, res) => {
     try {
         routeEmailParamSchema.validateSync(req.body.email);
-        res.status(200).json(await cilentService.findByEmail(email));
+        res.status(200).json(await clientService.findByEmail(email));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
 };
 
 const register = async (req, res) => {
-    const mail_otp = await otpMailService.findByEmail(req.body.email);
-    const fileExtension = '';
-    if(mail_otp){
-        try {
+    try {
+        const mail_otp = await otpMailService.findByEmail(req.body.email); 
+        if(mail_otp){ 
             const clientObj = req.body;
-            verifyOTPtoken(clientObj, mail_otp.otp);
+            // verifyOTPtoken(clientObj, mail_otp.otp);
             // check if submitted otp is same as db otp
             if(clientObj.decodedOTP !== clientObj.otp){
-                cleanUpFileUpload(req.file);
-                return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
+                // cleanUpFileUpload(req.file);
+                // return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
             }
-            if(req.file){
-                clientObj.dp = true;
-                // get file extension
-                fileExtension = path.extname(path.join(__dirname, "..", "images", req.file.filename));
-            }else {
-                clientObj.dp = false;
+            // if dp is available
+            if(req.file) {
+                clientObj.dp = req.file;
             }
             // create account
-            const client = await cilentService.register(clientObj);
-            // if dp is available, rename file
-            if(req.file) {
-                // move and rename dp name to client id
-                await fsPromises.rename(path.join(__dirname, "..", "images", req.file.filename), path.join(__dirname, "..", "dp-upload", client.id + fileExtension));
-                const encodedHash = await encodeImageToBlurhash(path.join(__dirname, "..", "dp-upload", client.id + fileExtension));
-                await createWebP(path.join(__dirname, "..", "dp-upload", client.id + fileExtension));
-            }
+            const client = await clientService.register(clientObj);
             // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
             client.mode = 1;
             // create jwt access token
@@ -79,28 +70,45 @@ const register = async (req, res) => {
             res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
             // res.setHeader("X-Suggested-Filename", originalname);
             res.setHeader('authorization', 'Bearer ' + accessToken);
-            res.status(201).json({'message': 'Account Creation successful'});
-        } catch (error) {
             cleanUpFileUpload(req.file);
-            res.status(400).json({'message': error.message});
-        }
-    }else {
+            res.status(201).json({'message': 'Account Creation successful'});
+        }else {
+            cleanUpFileUpload(req.file);
+            res.status(400).json({'message': "No associated mail found with otp."});
+        }  
+    } catch (error) {
         cleanUpFileUpload(req.file);
-        res.status(400).json({'message': "No associated mail found with otp."});
-    }    
+        res.status(400).json({'message': error.message});
+    }
 };
 
-const updateEmail = async (req, res) => {
-    const email = req.body.email;
+const update = async (req, res) => {
     try {
+        const clientObj = req.body;
+        const updatedClient = await clientService.update(req.whom.id, clientObj);
+        // create jwt access token
+        const accessToken = createClientAccessToken(updatedClient);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.status(200).json(updatedClient);
+    } catch (error) {
+        cleanUpFileUpload(req.file);
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const updateEmail = async (req, res) => {
+    try {
+        const email = req.body.email;
         // First thing First: validate email in request body
         routeEmailParamSchema.validateSync(email);
-        // find client from db using id in request parameter
-        const client = await cilentService.findById(req.whom.id);
-        if(!client) {
-            return res.status(400).json({'message': "Not Found"});
-        }
-        cilentService.updateEmail(clientID, email);
+        const client = clientService.updateEmail(req.whom.id, email);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        client.mode = 1;
+        // create jwt refresh token
+        const refreshToken = createRefreshToken(client);
+        res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
         res.status(200).json({'message': 'Email update successful'});
     } catch (error) {
         return res.status(400).json({'message': error.message});
@@ -113,7 +121,7 @@ const dpUpload = async (req, res) => {
     }
     try {
         // find client from db using id in request parameter
-        const client = await cilentService.findById(req.whom.id);
+        const client = await clientService.findById(req.whom.id);
         if(!client) {
             // delete uploaded dp
             cleanUpFileUpload(req.file);
@@ -139,7 +147,7 @@ const updatePassword = async (req, res) => {
         routePasswordParamSchema.validateSync(current_pw);
         routePasswordParamSchema.validateSync(new_pw);
         // find client from db using id in request parameter
-        const client = await cilentService.findForPassWord(req.whom.id);
+        const client = await clientService.findForPassWord(req.whom.id);
         if(!client) {
             return res.status(400).json({'message': "Not Found"});
         }
@@ -147,7 +155,7 @@ const updatePassword = async (req, res) => {
         // if match, then compare password
         const match = await bcrypt.compare(current_pw, client.pw);
         if(match) {
-            await cilentService.updatePassword(req.whom.id, new_pw);
+            await clientService.updatePassword(req.whom.id, new_pw);
             res.status(200).json({'message': 'Password update successfull'});
         }else {
             res.status(401).json({'message': 'Invalid password'});
@@ -167,7 +175,7 @@ const resetPassword = async (req, res) => {
         routeStringMiscParamSchema.validateSync(fname);
         routeStringMiscParamSchema.validateSync(lname);
         // reset password
-        const pw = await cilentService.resetPassword(req.body);
+        const pw = await clientService.resetPassword(req.body);
 
         const transporter = nodemailer.createTransport({
             host: process.env.MAIL_SERVICE_HOST,
@@ -187,13 +195,8 @@ const resetPassword = async (req, res) => {
         };
         
         // Send the email
-        transporter.sendMail(mailOptions, async (error, info) => {
-            if (error) {
-                res.status(500).json({'message': error.response });
-            } else {
-                res.status(200).json({'message': 'Password reset successfull\nPlease check your email for new password.\nIf not found in your inbox, please check your spam'});
-            }
-        });
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({'message': 'Password reset successfull\nPlease check your email for new password.\nIf not found in your inbox, please check your spam'});
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -201,92 +204,22 @@ const resetPassword = async (req, res) => {
 
 // PRIVATE METHODS
 '=================================='
-const encodeImageToBlurhash = async img => {
-    /*  ref: https://blog.opinly.ai/image-optimisation-with-sharp-in-nodejs/
-        https://www.digitalocean.com/community/tutorials/how-to-process-images-in-node-js-with-sharp
-        https://hamon.in/blog/blurhash/
-        https://harshpathak.hashnode.dev/creating-mesmerizing-visual-experiences-a-beginners-guide-to-image-blurring-with-blurhash
-    */
-    const { data, info } = await sharp(img).ensureAlpha().raw().toBuffer({
-        resolveWithObject: true,
-    });
-
-    const encoded = encode(
-        new Uint8ClampedArray(data),
-        info.width,
-        info.height,
-        4,
-        4
-    );
-
-    return {
-        hash: encoded,
-        height: info.height,
-        width: info.width,
-    };
-};
-
-const resizeImage = async (sharpImage) => {
-    /*  ref: https://blog.opinly.ai/image-optimisation-with-sharp-in-nodejs/
-    */
-    const metadata = await sharpImage.metadata();
-
-    // Calculate the maximum dimensions
-    const maxWidth = 16383;
-    const maxHeight = 16383;
-
-    if (!metadata.width) {
-        throw new Error("No metadata width found for image");
-    }
-
-    if (!metadata.height) {
-        throw new Error("No metadata height found for image");
-    }
-
-    // Determine whether resizing is necessary
-    const needsResize = metadata.width > maxWidth || metadata.height > maxHeight;
-
-    let resizedImage = sharpImage;
-
-    if (needsResize) {
-        // Calculate the new size maintaining the aspect ratio
-        const aspectRatio = metadata.width / metadata.height;
-        let newWidth = maxWidth;
-        let newHeight = maxHeight;
-
-        if (metadata.width > metadata.height) {
-        // Landscape or square image: scale by width
-        newHeight = Math.round(newWidth / aspectRatio);
-        } else {
-        // Portrait image: scale by height
-        newWidth = Math.round(newHeight * aspectRatio);
-        }
-
-        // Resize the image before converting to WebP
-        resizedImage = sharpImage.resize(newWidth, newHeight);
-    }
-
-    return resizedImage;
-}
-
-const createWebP = async (imageArray) => {
-    const sharpImage = sharp(imageArray);
-
-    const resizedImage = await resizeImage(sharpImage);
-
-    const webP = await resizedImage.webp().toBuffer();
-
-    return webP;
-};
 
 const cleanUpFileUpload = async (file) => {
     // possibility of successful file upload
     // handle file delete in case of multer file upload
-    if(file && existsSync(path.join(__dirname, "..", "images", file.filename)) ){
+    if(file && fs.existsSync(path.join(__dirname, "..", "images", file.filename)) ){
         await fsPromises.unlink(path.join(__dirname, "..", "images", file.filename));
     }
 };
 
-router.route('/register').post(multerImgUpload, validate(schema), register );
+router.route('/onboarding').post(multerImgUpload, validate(schema), register );
+router.route('/profile/update').put( verifyAccessToken, validate(updateSchema), update );
+router.route('/pw/update').put( verifyAccessToken, updatePassword );
+router.route('/pw/reset').put( resetPassword );
+router.route('/email/update').put( verifyAccessToken, updateEmail );
+router.route('/search').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
+router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
+router.route('/profile').get( verifyAccessToken, myProfile );
 
 module.exports = router;
