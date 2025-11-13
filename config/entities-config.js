@@ -21,7 +21,7 @@ db.staff = require('../entities/staff')(sequelize, Sequelize);
 db.staffAuths = require('../entities/staff-authority')(sequelize, Sequelize);
 db.tblJoinStaffAuths = require('../entities/tblJoinStaffAuths')(sequelize, Sequelize, db.staff, db.staffAuths);
 db.mailOTP = require('../entities/mail-otp')(sequelize, Sequelize);
-db.countries = require('../entities/country')(sequelize, Sequelize);
+db.countries = require('../entities/countries')(sequelize, Sequelize);
 db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
 db.notifications = require('../entities/notification')(sequelize, Sequelize);
 

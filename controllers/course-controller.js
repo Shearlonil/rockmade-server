@@ -8,16 +8,24 @@ const schema = require('../yup-schemas/course-schema');
 const preAuthorize = require('../middleware/verify-authorities');
 const courseService = require('../api-services/course-service');
 
-const createGolf = async (req, res) => {
+const createGolfCourse = async (req, res) => {
     try {
         await courseService.createGolfCourse(req.whom.id, req.body);
         res.sendStatus(200);
     } catch (error) {
-        console.log(error);
         return res.status(400).json({'message': error.message});
     }
 };
 
-router.route('/create').post( verifyAccessToken, validate(schema), preAuthorize(authorities.createCourse.code), createGolf );
+const findAllActiveGolfCoursesForGame = async (req, res) => {
+    try {
+        res.status(200).json(await courseService.findAllActiveGolfCoursesForGame());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+router.route('/create').post( verifyAccessToken, validate(schema), preAuthorize(authorities.createCourse.code), createGolfCourse );
+router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForGame );
 
 module.exports = router;

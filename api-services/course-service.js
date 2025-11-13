@@ -19,10 +19,11 @@ const createGolfCourse = async (creator_id, course) => {
                     const h = await Hole.create({ hole_no, hcp_idx: hcp, par, course_id: c.id }, { transaction: t });
                     for (const id of contests) {
                         const contest = await Contest.findByPk(id);
-                        if(contest == null){
-                            throw new Error("Invalid Contest specified");
+                        if(contest){
+                            await h.addContest(contest, { transaction: t });
+                        }else {
+                            throw new Error("Invalid Contest specified for hole " + hole_no);
                         }
-                        h.addContest(contest, { transaction: t });
                     }
                 }
             });
@@ -36,6 +37,26 @@ const createGolfCourse = async (creator_id, course) => {
     }
 }
 
+const findAllActiveGolfCoursesForGame = async () => {
+    return await Course.findAll(
+        { 
+            where: { status: true }, 
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest'
+                        }
+                    ],
+                },
+            ]
+        }
+    );
+}
+
 module.exports = {
     createGolfCourse,
+    findAllActiveGolfCoursesForGame,
 };

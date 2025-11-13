@@ -9,7 +9,7 @@ module.exports = {
         acc_creator: 1,
     },
     // 100 series => users/staff
-    // 200 series => golf course
+    // 200 series => golf course, contest, country et'al
     // 300 series => clients
     // 400 series => miscellaneous
     authorities: {
@@ -55,18 +55,33 @@ module.exports = {
         },
         createContest: {
             name: "Add Golf Contests",
-            code: 200,
+            code: 203,
             desc: "Add/Create Golf Contests",
         },
         deleteActivateContest: {
             name: "Delete/Activate Golf Contests",
-            code: 201,
+            code: 204,
             desc: "Delete/Activate Golf Contests",
         },
         updateContest: {
             name: "Update/Edit Golf Contests",
-            code: 202,
+            code: 205,
             desc: "Update/Edit Golf Contests",
+        },
+        createCountry: {
+            name: "Add Country",
+            code: 206,
+            desc: "Add/Create Golf Courses",
+        },
+        deleteActivateCountry: {
+            name: "Delete/Activate Country",
+            code: 207,
+            desc: "Delete/Activate Country",
+        },
+        updateCountry: {
+            name: "Update/Edit Country",
+            code: 208,
+            desc: "Update/Edit Country",
         },
         viewClients: {
             name: "View Clients",

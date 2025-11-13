@@ -208,8 +208,8 @@ const resetPassword = async (req, res) => {
 const cleanUpFileUpload = async (file) => {
     // possibility of successful file upload
     // handle file delete in case of multer file upload
-    if(file && fs.existsSync(path.join(__dirname, "..", "images", file.filename)) ){
-        await fsPromises.unlink(path.join(__dirname, "..", "images", file.filename));
+    if(file && fs.existsSync(path.join(__dirname, "..", "file-upload", file.filename)) ){
+        await fsPromises.unlink(path.join(__dirname, "..", "file-upload", file.filename));
     }
 };
 

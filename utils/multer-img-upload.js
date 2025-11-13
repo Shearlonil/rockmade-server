@@ -13,7 +13,7 @@ const fileStorageEngine = multer.diskStorage({
   
     // configure the destination directory 
     destination: (req, file, cb) => {
-        cb(null, 'images');
+        cb(null, 'file-upload');
     },
   
     // configure the destination filename

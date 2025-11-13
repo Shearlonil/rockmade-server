@@ -32,7 +32,6 @@ const findById = async id => {
 
 const findByEmail = async email => {
     return await User.findOne({
-        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'phone', 'status', 'hcp', ],
         where: { email },
         include: [
             {
@@ -141,7 +140,7 @@ const register = async client => {
             );
             if(dp){
                 client.id = c.id;
-                const buf = await compress(path.join(__dirname, "..", "images", dp.filename));
+                const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
                 await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", c.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
                 const encodedHash = await encodeImageToBlurhash(path.join(__dirname, "..", "dp-upload", c.id + '.webp'));
                 await BlurHash.create({blur_hash: encodedHash.hash, user_id: c.id}, { transaction: t });

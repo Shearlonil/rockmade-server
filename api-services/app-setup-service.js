@@ -1,11 +1,12 @@
 const db = require('../config/entities-config');
 const bcrypt = require('bcryptjs');
 
-const { bora, authorities, industries, locations, experienceLevel, qualifications } = require('../utils/default-entries');
+const { bora, authorities } = require('../utils/default-entries');
 
 const Staff = db.staff;
 const Authority = db.staffAuths;
 const terms = db.termsAndAgreement;
+const Country = db.countries;
 
 const setUp = async () => {
     try {
@@ -23,6 +24,7 @@ const setUp = async () => {
                 }
             ];
             await terms.create({value: arr}, { transaction: t });
+            await Country.create({name: "Nigeria", status: true, creator_id: admin.id}, { transaction: t });
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.

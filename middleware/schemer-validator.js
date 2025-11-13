@@ -9,7 +9,7 @@ const validate = (schema) => async (req, res, next) => {
     } catch (e) {
         // handle file delete in case of multer file upload
         if(req.file){
-            await fsPromises.unlink(path.join(__dirname, "..", "cv-upload", req.file.filename));
+            await fsPromises.unlink(path.join(__dirname, "..", "file-upload", req.file.filename));
         }
         return res.status(400).json({ 'message': e.errors });
         // res.status(400).json({ error: e.errors.join(', ') });

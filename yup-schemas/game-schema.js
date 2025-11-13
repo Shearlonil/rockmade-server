@@ -8,7 +8,7 @@ const schema = yup.object().shape({
     mode: yup
         .number().integer().min(1, "Invalid game mode specified")
         .required("Game mode is required!"),
-    hole_mode: yup.number().integer().min(1, "Invalid hole mode specified").max(3, "Invalid hole mode specified").required("Location is required"),
+    hole_mode: yup.number().integer().min(1, "Invalid hole mode specified").max(3, "Invalid hole mode specified").required("No of holes is required"),
 });
 
 module.exports = schema;

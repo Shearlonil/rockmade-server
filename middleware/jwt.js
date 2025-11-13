@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
 const staffService = require('../api-services/staff-service');
+const clientService = require('../api-services/client-service');
 
 const createOTPtoken = otp => {
     return jwt.sign({
@@ -23,6 +24,7 @@ const verifyOTPtoken = (client, token) => {
 }
 
 const createClientAccessToken = (client) => {
+    const sub = encrypt(client.sub_expiration);
     return jwt.sign({
         "whom": {
             id: client.id,
@@ -32,6 +34,8 @@ const createClientAccessToken = (client) => {
             email: client.email,
             phone: client.phone,
             regDate: client.createdAt,
+            hcp: client.hcp,
+            sub
         },
     }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '10m'} );
 }
@@ -60,7 +64,7 @@ const verifyAccessToken = (req, res, next) => {
         (err, decoded) => {
             if(err) {
                 if(err.name === 'TokenExpiredError') {
-                    return res.sendStatus(408); // Request Time out, we could also any suitable 4XX family to indicated expired token
+                    return res.sendStatus(401); // Unauthorized, A 401 typically signifies an expired access token.
                 }
                 return res.sendStatus(403); // Forbidden
             }
@@ -168,10 +172,10 @@ const encrypt = (text) => {
         Buffer.from(process.env.CRYPTO_IV, 'base64'));
 
     // encrypt the data
-    let encryptedText = cipher.update(text, "utf-8", "hex");
+    let encryptedText = cipher.update(text, "utf-8", "base64");
     
     // finalize the encryption
-    encryptedText += cipher.final("hex");
+    encryptedText += cipher.final("base64");
     return encryptedText;
 }
 
@@ -181,7 +185,7 @@ const decrypt = (encryptedText) => {
         Buffer.from(process.env.CRYPTO_IV, 'base64'));
     
     // decrypt the data
-    let decrypted = decipher.update(encryptedText, "hex", "utf-8");
+    let decrypted = decipher.update(encryptedText, "base64", "utf-8");
     
     // finalize the decryption
     decrypted += decipher.final("utf-8");
