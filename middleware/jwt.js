@@ -32,7 +32,7 @@ const createClientAccessToken = (client) => {
             lname: client.lname,
             gender: client.gender,
             email: client.email,
-            phone: client.phone,
+            // phone: client.phone,
             regDate: client.createdAt,
             hcp: client.hcp,
             sub

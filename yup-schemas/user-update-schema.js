@@ -10,7 +10,7 @@ const schema = yup.object().shape({
         .string()
         .email()
         .matches(email_regx, 'A valid personal email format email@mail.com is required').required("Email is required"),
-    phone: yup.string().test('len', 'Phone number must be 11 characters', val => val.length === 11).required("Phone number is required"),
+    // phone: yup.string().test('len', 'Phone number must be 11 characters', val => val.length === 11).required("Phone number is required"),
     gender: yup
         .string()
         .max(1)

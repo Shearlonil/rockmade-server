@@ -21,8 +21,7 @@ app.use(credentials);
 // CROSS ORIGIN RESOURCE SHARING
 app.use(cors(corsOptions));
 
-// built-in middleware to handle urlencoded data aka form-data
-// 'content-type' application/x-www-form-urlencoded
+// built-in middleware to handle urlencoded data aka form-data: 'content-type' application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended : true }));
 
 // built-in middleware for application/json
@@ -41,6 +40,7 @@ app.use('/courses', require('./controllers/course-controller'));
 app.use('/contests', require('./controllers/contest-controller'));
 app.use('/countries', require('./controllers/country-controller'));
 app.use('/users', require('./controllers/client-controller'));
+app.use('/games', require('./controllers/game-controller'));
 
 /*  ref: https://stackoverflow.com/questions/27928372/react-router-urls-dont-work-when-refreshing-or-writing-manually
     check neeraj-dixit27's solution on the above thread
