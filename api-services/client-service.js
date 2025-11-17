@@ -4,10 +4,11 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const { subDays } = require('date-fns');
+const { subDays, format } = require('date-fns');
 
 const generateOTP = require('../utils/otp-generator');
 const {compress, encodeImageToBlurhash} = require('../utils/img-compression-agent');
+const { decrypt } = require('../utils/crypto-helper');
 
 const User = db.users;
 const Course = db.courses;
@@ -17,7 +18,7 @@ const BlurHash = db.blurHash;
 
 const findById = async id => {
     return await User.findByPk(id, {
-        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'phone', 'status', 'hcp', ],
+        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
         include: [
             {
                 model: Course,
@@ -107,7 +108,7 @@ const resetPassword = async (data) => {
 }
 
 const register = async client => {
-    const { fname, lname, pw, email, gender, phone, hcp, hc_id, country_id, dp } = client;
+    const { fname, lname, pw, email, gender, dob, hcp, hc_id, country_id, dp } = client;
     const f_name = fname.trim();
     const l_name = lname.trim();
     const mail = email.trim();
@@ -129,13 +130,15 @@ const register = async client => {
     }
 
     const yesterday = subDays(new Date(), 1); // Subtracts 1 day from today to use as sub_expiration
+    const birthDay = format(dob, "yyyy-MM-dd");
 
+    const decrypted_pw = decrypt(pw);
     // encrypt password
-    const hashedPwd = await bcrypt.hash(pw, 12);
+    const hashedPwd = await bcrypt.hash(decrypted_pw, 12);
     try {
         return await db.sequelize.transaction( async (t) => {
             const c = await User.create(
-                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, phone, hcp, course_id: hc_id, sub_expiration: yesterday, country_id }
+                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, dob: birthDay, hcp, course_id: hc_id, sub_expiration: yesterday, country_id }
                 , { transaction: t }
             );
             if(dp){
@@ -161,7 +164,7 @@ const register = async client => {
 };
 
 const update = async (id, profile) => {
-    const { fname, lname, phone, gender, hcp, hc_id, country_id } = profile;
+    const { fname, lname, dob, gender, hcp, hc_id, country_id } = profile;
     const f_name = fname.trim();
     const l_name = lname.trim();
 
@@ -179,7 +182,7 @@ const update = async (id, profile) => {
     const client = await User.findByPk(id);
     try {
         await db.sequelize.transaction( async (t) => {
-            await client.update({ fname: f_name, lname: l_name, phone, gender, hcp, course_id: hc_id, country_id }, {
+            await client.update({ fname: f_name, lname: l_name, dob, gender, hcp, course_id: hc_id, country_id }, {
                 where: { id },
                 returning: true,
                 transaction: t

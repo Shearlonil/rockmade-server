@@ -25,7 +25,16 @@ const findAllActiveGolfCoursesForGame = async (req, res) => {
     }
 };
 
+const findAllActiveGolfCoursesForReg = async (req, res) => {
+    try {
+        res.status(200).json(await courseService.findAllActiveGolfCoursesForGame());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 router.route('/create').post( verifyAccessToken, validate(schema), preAuthorize(authorities.createCourse.code), createGolfCourse );
 router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForGame );
+router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
 
 module.exports = router;

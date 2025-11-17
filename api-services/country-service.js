@@ -50,8 +50,13 @@ const status = async (country) => {
     }
 }
 
+const findAllActive = async () => {
+    return await Country.findAll({ where: { status: true } });
+}
+
 module.exports = {
     create,
     update,
     status,
+    findAllActive,
 };

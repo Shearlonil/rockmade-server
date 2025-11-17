@@ -29,6 +29,14 @@ const status = async (req, res) => {
     }
 };
 
+const findAllActive = async (req, res) => {
+    try {
+        res.status(200).json(await countryService.findAllActive());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const update = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.body.id);
@@ -43,5 +51,6 @@ const update = async (req, res) => {
 router.route('/create/:name').post( verifyAccessToken, preAuthorize(authorities.createCountry.code), create );
 router.route('/update').put( verifyAccessToken, preAuthorize(authorities.updateCountry.code), update );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteActivateCountry.code), status );
+router.route('/active/all').get( findAllActive );
 
 module.exports = router;

@@ -20,7 +20,7 @@ const clientLogin = async (req, res) => {
         // find from db using email
         const found = await clientService.findByEmail(email);
         // if no match from db or found but account deactivated, return error
-        if(!found || found.status === false) return res.status(401).json({'message': 'Invalid email or password'});
+        if(!found || found.status === false) return res.status(400).json({'message': 'Invalid email or password'});
         // if match, then compare password
         const match = await bcrypt.compare(pw, found.pw);
         if(match) {
@@ -39,10 +39,9 @@ const clientLogin = async (req, res) => {
             res.setHeader('authorization', 'Bearer ' + accessToken);
             res.status(200).json({'message': 'Login successful'});
         }else {
-            res.status(401).json({'message': 'Invalid email or password'});
+            res.status(400).json({'message': 'Invalid email or password'});
         }
     } catch (error) {
-        console.log(error);
         return res.status(400).json({'message': error.message});
     }
     
@@ -58,7 +57,7 @@ const staffLogin = async (req, res) => {
         // find from db using email
         const found = await staffService.findByEmail(email);
         // if no match from db or found but account deactivated, return error
-        if(!found || found.status === false) return res.status(401).json({'message': 'Invalid email or password'});
+        if(!found || found.status === false) return res.status(400).json({'message': 'Invalid email or password'});
         // if match, then compare password
         const match = await bcrypt.compare(pw, found.pw);
         if(match) {
@@ -76,7 +75,7 @@ const staffLogin = async (req, res) => {
             res.setHeader('authorization', 'Bearer ' + accessToken);
             res.status(200).json({'message': 'Login successful'});
         }else {
-            res.status(401).json({'message': 'Invalid email or password'});
+            res.status(400).json({'message': 'Invalid email or password'});
         }
     } catch (error) {
         return res.status(400).json({'message': error.message});
@@ -84,44 +83,44 @@ const staffLogin = async (req, res) => {
 }
 
 const otp = async (req, res) => {
-    const email = req.params.email
     try {
+        const email = req.params.email
         // First thing First: validate email in request paarameter
         routeEmailParamSchema.validateSync(email);
+        // generate otp
+        const oneTimePass = generateOTP(6);
+        // create jwt token from otp
+        const token = createOTPtoken(oneTimePass);
+        
+        const transporter = nodemailer.createTransport({
+            host: process.env.MAIL_SERVICE_HOST,
+            port: 465,
+            secure: true, // Use true for port 465, false for all other ports
+            auth: {
+                user: process.env.MAIL_AUTH_USER,
+                pass: process.env.MAIL_AUTH_USER_PASSWORD,
+            },
+            tls: {
+                // do not fail on invalid certs
+                rejectUnauthorized: false,
+            },
+        });
+        // Configure the mailoptions object
+        const mailOptions = {
+            from: process.env.MAIL_AUTH_USER,
+            to: email,
+            subject: 'OTP',
+            text: `This message is from RockMade Golf, please use the token ${oneTimePass} to continue your registration process.`
+        };
+        
+        // Send the email
+        await transporter.sendMail(mailOptions);
+        // save email and associated token
+        await otpMailService.saveOrUpdate(email, token);
+        return res.status(200).json({'message': 'OTP sent'});
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
-    // generate otp
-    const oneTimePass = generateOTP(6);
-    // create jwt token from otp
-    const token = createOTPtoken(oneTimePass);
-    
-    const transporter = nodemailer.createTransport({
-        host: process.env.MAIL_SERVICE_HOST,
-        port: 465,
-        secure: true, // Use true for port 465, false for all other ports
-        auth: {
-            user: process.env.MAIL_AUTH_USER,
-            pass: process.env.MAIL_AUTH_USER_PASSWORD,
-        },
-        tls: {
-            // do not fail on invalid certs
-            rejectUnauthorized: false,
-        },
-    });
-    // Configure the mailoptions object
-    const mailOptions = {
-        from: process.env.MAIL_AUTH_USER,
-        to: email,
-        subject: 'OTP',
-        text: `This message is from RockMade Golf, please use the token ${oneTimePass} to continue your registration process.`
-    };
-    
-    // Send the email
-    await transporter.sendMail(mailOptions);
-    // save email and associated token
-    await otpMailService.saveOrUpdate(email, token);
-    return res.status(200).json({'message': 'OTP sent'});
 }
 
 const refresh = async (req, res) => {

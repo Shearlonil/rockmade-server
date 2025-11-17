@@ -47,11 +47,11 @@ const register = async (req, res) => {
         const mail_otp = await otpMailService.findByEmail(req.body.email); 
         if(mail_otp){ 
             const clientObj = req.body;
-            // verifyOTPtoken(clientObj, mail_otp.otp);
+            verifyOTPtoken(clientObj, mail_otp.otp);
             // check if submitted otp is same as db otp
             if(clientObj.decodedOTP !== clientObj.otp){
-                // cleanUpFileUpload(req.file);
-                // return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
+                cleanUpFileUpload(req.file);
+                return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
             }
             // if dp is available
             if(req.file) {

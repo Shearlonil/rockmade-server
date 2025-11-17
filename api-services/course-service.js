@@ -56,7 +56,16 @@ const findAllActiveGolfCoursesForGame = async () => {
     );
 }
 
+const findAllActiveGolfCoursesForReg = async () => {
+    return await Course.findAll(
+        { 
+            where: { status: true },
+        }
+    );
+}
+
 module.exports = {
     createGolfCourse,
     findAllActiveGolfCoursesForGame,
+    findAllActiveGolfCoursesForReg,
 };
