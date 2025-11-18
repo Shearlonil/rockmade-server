@@ -30,7 +30,7 @@ const createClientAccessToken = (client) => {
             id: client.id,
             fname: client.fname,
             lname: client.lname,
-            gender: client.gender,
+            sex: client.gender,
             email: client.email,
             // phone: client.phone,
             regDate: client.createdAt,
@@ -49,6 +49,8 @@ const createStaffAccessToken = (staff) => {
             fname: staff.fname,
             lname: staff.lname,
             email: staff.email,
+            regDate: staff.createdAt,
+            sex: staff.sex,
             roles: authorities
         },
     }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '10m'} );
