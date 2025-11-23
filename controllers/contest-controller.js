@@ -39,8 +39,17 @@ const update = async (req, res) => {
     }
 };
 
+const findAllActive = async (req, res) => {
+    try {
+        res.status(200).json(await contestService.findAllActive());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 router.route('/create/:name').post( verifyAccessToken, preAuthorize(authorities.createContest.code), create );
 router.route('/update').put( verifyAccessToken, preAuthorize(authorities.updateContest.code), update );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteActivateContest.code), status );
+router.route('/active/all').get( findAllActive );
 
 module.exports = router;

@@ -50,8 +50,13 @@ const status = async (contest) => {
     }
 }
 
+const findAllActive = async () => {
+    return await Contest.findAll({ where: { status: true } });
+}
+
 module.exports = {
     create,
     update,
     status,
+    findAllActive,
 };

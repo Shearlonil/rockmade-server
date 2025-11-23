@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const { verifyAccessToken } = require('../middleware/jwt');
+const schema = require('../yup-schemas/game-schema');
+const validate = require('../middleware/schemer-validator');
 
 const createGame = async (req, res) => {
     try {
@@ -17,6 +19,6 @@ const createGame = async (req, res) => {
     }
 };
 
-router.route('/create').post( verifyAccessToken, createGame );
+router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 
 module.exports = router;

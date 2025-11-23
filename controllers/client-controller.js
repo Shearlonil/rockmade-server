@@ -139,6 +139,22 @@ const dpUpload = async (req, res) => {
     }
 };
 
+const downnloadProfileImg = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        const file = path.join(__dirname, "..", "dp-upload", `${req.params.id}.webp`)
+        /*  To explore later
+            ref: https://stackoverflow.com/questions/31105846/how-to-send-a-pdf-file-from-node-express-app-to-the-browser
+            show in browser or download
+            res.setHeader('Content-Disposition', `inline; filename=${file}`);
+            res.setHeader('Content-Disposition', `attachment; filename=${file}`);
+        */
+        res.download(file);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
 const updatePassword = async (req, res) => {
     try {
         const current_pw = req.body.current_pw;
@@ -221,5 +237,6 @@ router.route('/email/update').put( verifyAccessToken, updateEmail );
 router.route('/search').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );
+router.route('/dp/:id').get( verifyAccessToken, downnloadProfileImg );
 
 module.exports = router;
