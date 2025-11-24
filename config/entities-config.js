@@ -15,8 +15,9 @@ db.contests = require('../entities/contests')(sequelize, Sequelize);
 db.tblJoinHolesContests = require('../entities/tbl-join-holes-contests')(sequelize, Sequelize, db.holes, db.contests);
 db.userGameGroup = require('../entities/user-game-group')(sequelize, Sequelize);
 db.gameHoleRecords = require('../entities/game-hole-records')(sequelize, Sequelize);
-db.holeContests = require('../entities/hole-contests')(sequelize, Sequelize);
-db.holeScores = require('../entities/hole-scores')(sequelize, Sequelize);
+db.userHoleContestScores = require('../entities/user-hole-contest-scores')(sequelize, Sequelize);
+db.gameHoleContests = require('../entities/game-hole-contest')(sequelize, Sequelize);
+db.holeScores = require('../entities/user-hole-scores')(sequelize, Sequelize);
 db.staff = require('../entities/staff')(sequelize, Sequelize);
 db.staffAuths = require('../entities/staff-authority')(sequelize, Sequelize);
 db.tblJoinStaffAuths = require('../entities/tblJoinStaffAuths')(sequelize, Sequelize, db.staff, db.staffAuths);
@@ -116,6 +117,21 @@ db.games.belongsTo(db.courses, {
     }
 });
 
+// OneToMany relationship between games and gameHoleContests (if any for a game)
+db.games.hasMany(db.gameHoleContests, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'game_id',
+        allowNull: false,
+    }
+});
+db.gameHoleContests.belongsTo(db.games, {
+    foreignKey: {
+        name: 'game_id',
+        allowNull: false,
+    }
+});
+
 // OneToMany relationship between games and gameHoleRecords
 db.games.hasMany(db.gameHoleRecords, {
     foreignKey: {
@@ -131,15 +147,15 @@ db.gameHoleRecords.belongsTo(db.games, {
     }
 });
 
-// OneToMany relationship between gameHoleRecords and holeContest
-db.gameHoleRecords.hasMany(db.holeContests, {
+// OneToMany relationship between gameHoleRecords and userHoleContestScores
+db.gameHoleRecords.hasMany(db.userHoleContestScores, {
     foreignKey: {
         // also set the foreign key name here to avoid sequelize adding column CourseId
         name: 'game_hole_rec_id',
         allowNull: false,
     }
 });
-db.holeContests.belongsTo(db.gameHoleRecords, {
+db.userHoleContestScores.belongsTo(db.gameHoleRecords, {
     foreignKey: {
         name: 'game_hole_rec_id',
         allowNull: false,
@@ -206,7 +222,7 @@ db.games.belongsToMany(db.users, {
     otherKey: 'user_id',
 });
 
-// ManyToMany relationship between contests and holes
+// ManyToMany relationship between contests and holes of golf courses
 db.contests.belongsToMany(db.holes, {
     as: 'hole',
     through: db.tblJoinHolesContests,

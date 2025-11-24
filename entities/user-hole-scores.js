@@ -1,6 +1,6 @@
 module.exports = (sequelize, Sequelize) => {
-  
-    const GameHoleRecords = sequelize.define('GameHoleRecords', {
+    // holds users scores for a particular hole in a game
+    const UserHoleScores = sequelize.define('UserHoleScores', {
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
@@ -8,24 +8,32 @@ module.exports = (sequelize, Sequelize) => {
             autoIncrement:true,
             // course_id can not be null.
             allowNull:false,
-            // For uniquely identifying GameHoleRecords.
+            // For uniquely identifying UserHoleScores.
             primaryKey:true
         },
-        hole_no: {
-            type: Sequelize.INTEGER,
+        user_id: {
+            type: Sequelize.BIGINT,
             allowNull:false,
             notEmpty: true
         },
-        round_no: {
+        /*
+        TODO: delete comment
+        game_hole_rec_id: {
+            type: Sequelize.BIGINT,
+            allowNull:false,
+            notEmpty: true
+        },
+        */
+        score: {
             type: Sequelize.INTEGER,
             allowNull:false,
             notEmpty: true
         },
     }, {
-        tableName: 'game_hole_rec',
+        tableName: 'user_hole_scores',
         timestamps: true,
         createdAt: true,
         updatedAt: false
     });  
-    return GameHoleRecords;
+    return UserHoleScores;
 };

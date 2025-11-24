@@ -40,7 +40,7 @@ const createGolfCourse = async (creator_id, course) => {
 const findAllActiveGolfCoursesForGame = async () => {
     return await Course.findAll(
         { 
-            where: { status: true }, 
+            where: { status: true },
             include: [
                 {
                     model: Hole,
