@@ -176,6 +176,21 @@ db.contests.belongsTo(db.staff, {
     }
 });
 
+// OneToMany relationship between users and games (creator of a game)
+db.users.hasMany(db.games, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+db.games.belongsTo(db.users, {
+    foreignKey: {
+        name: 'creator_id',
+        allowNull: false,
+    }
+});
+
 // ManyToMany relationship between users and games (using groups as user must be in a group to play a game)
 db.users.belongsToMany(db.games, {
     as: 'game',

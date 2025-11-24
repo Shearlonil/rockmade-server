@@ -1,19 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const { isAfter } = require('date-fns');
 
 const { verifyAccessToken } = require('../middleware/jwt');
 const schema = require('../yup-schemas/game-schema');
 const validate = require('../middleware/schemer-validator');
+const { findById } = require('../api-services/client-service');
 
 const createGame = async (req, res) => {
     try {
-        // Wait for 3 minutes (3 * 60 * 1000 milliseconds)
-        setTimeout(() => {
-            console.log("1 minutes have passed. Executing delayed code.");
-            // Place the code you want to execute after the delay here
-            res.sendStatus(200);
-        }, 1 * 60 * 1000);
-        
+        const client = await findById(req.whom.id);
+        if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
+            throw new Error("Account doesn't support feature. Please subscribe");
+        }
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }

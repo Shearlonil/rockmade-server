@@ -16,6 +16,11 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
+        round_no: {
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
         start_time: {
             type: Sequelize.DATE,
             allowNull:false,

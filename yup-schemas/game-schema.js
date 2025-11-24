@@ -21,7 +21,7 @@ const schema = yup.object().shape({
     /*  1   => Tournament
         2   => Member Games
     */
-    mode: yup.number().integer().min(1, "Invalid hole mode specified").max(3, "Invalid hole mode specified").required("No of holes is required"),
+    mode: yup.number().integer().min(1, "Invalid game mode specified").max(3, "Invalid game mode specified").required("Game mode is required"),
 });
 
 module.exports = schema;

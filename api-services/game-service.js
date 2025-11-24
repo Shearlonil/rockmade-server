@@ -1,4 +1,5 @@
 const db = require('../config/entities-config');
+const { format } = require('date-fns');
 
 const Course = db.courses;
 const Game = db.games;
@@ -7,28 +8,26 @@ const Contest = db.contests;
 
 const createGame = async (creator_id, game) => {
     try {
-        const { name, course_id, hole_mode, date, contests } = game;
-
-        if(holes.length === 9 || holes.length === 18){
-            const creator = await Staff.findByPk(creator_id);
+        const { name, course_id, hole_mode, startDate, mode, contests } = game;
+        const course = await Course.findByPk(course_id, {
+            where: { status: true },
+        });
+        if(course){
+            const date = format(startDate, "yyyy-MM-dd");
             await db.sequelize.transaction( async (t) => {
-                const c = await Course.create( { name, no_of_holes: hole_count, location, creator_id: creator.id }, { transaction: t });
+                const g = await Game.create( { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1 }, { transaction: t });
                     
-                for (const hole of holes) {
-                    const { hole_no, hcp, par, contests = [] } = hole;
-                    const h = await Hole.create({ hole_no, hcp_idx: hcp, par, course_id: c.id }, { transaction: t });
-                    for (const id of contests) {
-                        const contest = await Contest.findByPk(id);
-                        if(contest){
-                            await h.addContest(contest, { transaction: t });
-                        }else {
-                            throw new Error("Invalid Contest specified for hole " + hole_no);
-                        }
+                for (const c of contests) {
+                    const contest = await Contest.findByPk(c.id);
+                    if(contest){
+                        await h.addContest(contest, { transaction: t });
+                    }else {
+                        throw new Error("Invalid Contest specified ");
                     }
                 }
             });
         }else {
-            throw new Error("Invalid number of holes specified");
+            throw new Error("Invalid Golf Course specified");
         }
     } catch (error) {
         // If the execution reaches this line, an error occurred.
