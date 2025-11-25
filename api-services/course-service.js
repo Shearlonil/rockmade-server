@@ -64,8 +64,30 @@ const findAllActiveGolfCoursesForReg = async () => {
     );
 }
 
+/*  method to initialize Course page with 100 active courses to use as defaultOptions for AsyncSelect
+    and also count total active courses for pagination component */
+const activeCoursesPageInit = async () => {
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on c.creator_id = s.id WHERE c.status = ${'true'} LIMIT 100`
+    );
+    const count = await Course.count({where: {status: true}});
+    return {count, results};
+}
+
+/*  method to initialize Course page with 100 inactive courses to use as defaultOptions for AsyncSelect
+    and also count total inactive courses for pagination component */
+const inactiveCoursesPageInit = async () => {
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on c.creator_id = s.id WHERE c.status = ${'false'} LIMIT 100`
+    );
+    const count = await Course.count({where: {status: false}});
+    return {count, results};
+}
+
 module.exports = {
     createGolfCourse,
     findAllActiveGolfCoursesForGame,
     findAllActiveGolfCoursesForReg,
+    activeCoursesPageInit,
+    inactiveCoursesPageInit,
 };

@@ -33,8 +33,32 @@ const findAllActiveGolfCoursesForReg = async (req, res) => {
     }
 };
 
+const activeCoursesPageInit = async (req, res) => {
+    try {
+        if(!req.whom.roles || req.whom.roles.length < 1){
+            res.sendStatus(404);
+        }
+        res.status(200).json(await courseService.activeCoursesPageInit());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const inactiveCoursesPageInit = async (req, res) => {
+    try {
+        if(!req.whom.roles || req.whom.roles.length < 1){
+            res.sendStatus(404);
+        }
+        res.status(200).json(await courseService.inactiveCoursesPageInit());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 router.route('/create').post( verifyAccessToken, validate(schema), preAuthorize(authorities.createCourse.code), createGolfCourse );
 router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForGame );
 router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
+router.route('/active/init').get( verifyAccessToken, activeCoursesPageInit );
+router.route('/inactive/init').get( verifyAccessToken, inactiveCoursesPageInit );
 
 module.exports = router;
