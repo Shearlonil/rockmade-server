@@ -5,6 +5,24 @@ const Staff = db.staff;
 const Hole = db.holes;
 const Contest = db.contests;
 
+const findById = async (id) => {
+    return await Course.findByPk(id,
+        { 
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest'
+                        }
+                    ],
+                },
+            ]
+        }
+    );
+}
+
 const createGolfCourse = async (creator_id, course) => {
     try {
         const { name, hole_count, location, holes } = course;
@@ -85,6 +103,7 @@ const inactiveCoursesPageInit = async () => {
 }
 
 module.exports = {
+    findById,
     createGolfCourse,
     findAllActiveGolfCoursesForGame,
     findAllActiveGolfCoursesForReg,

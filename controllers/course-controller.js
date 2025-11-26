@@ -7,6 +7,7 @@ const { authorities } = require('../utils/default-entries');
 const schema = require('../yup-schemas/course-schema');
 const preAuthorize = require('../middleware/verify-authorities');
 const courseService = require('../api-services/course-service');
+const { routePositiveNumberMiscParamSchema } = require('../yup-schemas/request-params');
 
 const createGolfCourse = async (req, res) => {
     try {
@@ -16,6 +17,14 @@ const createGolfCourse = async (req, res) => {
         return res.status(400).json({'message': error.message});
     }
 };
+const findById = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        res.status(200).json( await courseService.findById(req.params.id) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
 
 const findAllActiveGolfCoursesForGame = async (req, res) => {
     try {
@@ -60,5 +69,6 @@ router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForG
 router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
 router.route('/active/init').get( verifyAccessToken, activeCoursesPageInit );
 router.route('/inactive/init').get( verifyAccessToken, inactiveCoursesPageInit );
+router.route('/search/:id').get( verifyAccessToken, findById );
 
 module.exports = router;
