@@ -43,10 +43,10 @@ module.exports = {
             code: 200,
             desc: "Add/Create Golf Courses",
         },
-        deleteCourse: {
-            name: "Delete Golf Courses",
+        deleteActivateCourse: {
+            name: "Delete/Activate Golf Courses",
             code: 201,
-            desc: "Delete Golf Courses",
+            desc: "Delete/Activate Golf Courses",
         },
         updateCourse: {
             name: "Update/Edit Golf Courses",

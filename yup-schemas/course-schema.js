@@ -12,8 +12,23 @@ const schema = yup.object().shape({
     hole_count: yup.number().min(9, "Number of holes must be at least 9").required('Number of Holes is required'),
     location: yup
         .string()
-        .required("Location must be a min of 6 characters!"),
+        .min(3, "Location must be a min of 3 characters!")
+        .required("Location is required!"),
     holes: yup.array().of(holeSchema).min(9, "At least 9 holes are required").required("Holes are required"),
 });
 
-module.exports = schema;
+const courseUpdate = yup.object().shape({
+    id: yup.number().required("Course is required"),
+    name: yup.string().required("Course name is required!"),
+    location: yup
+        .string()
+        .min(3, "Location must be a min of 3 characters!")
+        .required("Location is required!"),
+});
+
+const courseHoleCountUpdateSchema = yup.object().shape({
+    course_id: yup.number().required('Golf Course is required'),
+    holes: yup.array().of(holeSchema).min(9, "At least 9 holes are required").required("Holes are required"),
+});
+
+module.exports = { schema, courseUpdate, courseHoleCountUpdateSchema };

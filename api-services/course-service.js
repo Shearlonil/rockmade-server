@@ -1,4 +1,5 @@
 const db = require('../config/entities-config');
+const { QueryTypes } = db.sequelize;
 
 const Course = db.courses;
 const Staff = db.staff;
@@ -44,6 +45,79 @@ const createGolfCourse = async (creator_id, course) => {
                         }
                     }
                 }
+            });
+        }else {
+            throw new Error("Invalid number of holes specified");
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
+const updateCourse = async (course) => {
+    try {
+        const { name, location, id } = course;
+        const c = await Course.findByPk(id);
+        if(c === null){
+             throw new Error("Course not found");
+        }
+        await Course.update({ name, location }, {
+            where: { id },
+            returning: true,
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
+const updateCourseHoleCount = async (course) => {
+    try {
+        const { course_id, holes } = course;
+
+        if(holes.length === 9 || holes.length === 18){
+            return await db.sequelize.transaction( async (t) => {
+                // FIRST: delete all contests associated with previous holes for this course
+                await db.sequelize.query(
+                    'DELETE jt FROM jt_holes_contests as jt inner join holes as h on h.id = jt.hole_id WHERE h.course_id = :course_id',
+                    {
+                        replacements: { course_id },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // SECOND: delete all previous holes for this course
+                await db.sequelize.query(
+                    'DELETE FROM holes WHERE holes.course_id = :course_id',
+                    {
+                        replacements: { course_id },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+
+                // THIRD: create new holes
+                const holesArr = [];
+                for (const hole of holes) {
+                    const { hole_no, hcp, par } = hole;
+                    const h = await Hole.create({ hole_no, hcp_idx: hcp, par, course_id }, { transaction: t });
+                    holesArr.push(h);
+                }
+
+                // LAST: update hole count (no_of_holes field) in course table
+                const c = await Course.findByPk(course_id);
+                if(c === null){
+                    throw new Error("Course not found");
+                }
+                await Course.update({ no_of_holes: holes.length }, {
+                    where: { id: course_id },
+                    transaction: t,
+                    returning: true,
+                });
+                return holesArr;
             });
         }else {
             throw new Error("Invalid number of holes specified");
@@ -102,11 +176,32 @@ const inactiveCoursesPageInit = async () => {
     return {count, results};
 }
 
+const status = async (contest) => {
+    try {
+        const { status, id } = contest;
+        const c = await Course.findByPk(id);
+        if(c === null){
+             throw new Error("Course not found");
+        }
+        await Course.update({ status }, {
+            where: { id },
+            returning: true,
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
 module.exports = {
     findById,
     createGolfCourse,
+    updateCourse,
+    updateCourseHoleCount,
     findAllActiveGolfCoursesForGame,
     findAllActiveGolfCoursesForReg,
     activeCoursesPageInit,
     inactiveCoursesPageInit,
+    status,
 };

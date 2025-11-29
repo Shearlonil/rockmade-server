@@ -4,10 +4,10 @@ const router = express.Router();
 const validate = require('../middleware/schemer-validator');
 const { verifyAccessToken } = require('../middleware/jwt');
 const { authorities } = require('../utils/default-entries');
-const schema = require('../yup-schemas/course-schema');
+const { schema, courseUpdate, courseHoleCountUpdateSchema } = require('../yup-schemas/course-schema');
 const preAuthorize = require('../middleware/verify-authorities');
 const courseService = require('../api-services/course-service');
-const { routePositiveNumberMiscParamSchema } = require('../yup-schemas/request-params');
+const { routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
 
 const createGolfCourse = async (req, res) => {
     try {
@@ -17,6 +17,24 @@ const createGolfCourse = async (req, res) => {
         return res.status(400).json({'message': error.message});
     }
 };
+
+const updateCourseHoleCount = async (req, res) => {
+    try {
+        res.status(200).json(await courseService.updateCourseHoleCount(req.body));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const updateCourse = async (req, res) => {
+    try {
+        await courseService.updateCourse(req.body);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const findById = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
@@ -64,7 +82,21 @@ const inactiveCoursesPageInit = async (req, res) => {
     }
 };
 
+const status = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.body.id);
+        routeBooleanParamSchema.validateSync(req.body.status);
+        await courseService.status(req.body);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 router.route('/create').post( verifyAccessToken, validate(schema), preAuthorize(authorities.createCourse.code), createGolfCourse );
+router.route('/update').post( verifyAccessToken, validate(courseUpdate), preAuthorize(authorities.updateCourse.code), updateCourse );
+router.route('/holes/update').post( verifyAccessToken, validate(courseHoleCountUpdateSchema), preAuthorize(authorities.updateCourse.code), updateCourseHoleCount );
+router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteActivateCourse.code), status );
 router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForGame );
 router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
 router.route('/active/init').get( verifyAccessToken, activeCoursesPageInit );
