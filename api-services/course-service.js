@@ -24,6 +24,35 @@ const findById = async (id) => {
     );
 }
 
+const paginateFetch = async (prop) => {
+    // page: Current page number (e.g., 1-indexed), pageSize: Number of items per page
+    const {page, pageSize, status} = prop; 
+
+    let size = pageSize * 1;    // convert to number
+    const offset = (page - 1) * size;
+    const s = JSON.parse(status)
+
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        c.creator_id = s.id WHERE c.status = ${status} LIMIT ${size} OFFSET ${offset}`
+    );
+    const count = await Course.count({where: {status: s}});
+    return {count, results};
+}
+
+const search = async (prop) => {
+    const { str, status } = prop;
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = ${status}`, {
+            replacements: { 
+                searchPattern: `%${str}%` 
+            },
+        }
+    );
+    return results;
+}
+
 const createGolfCourse = async (creator_id, course) => {
     try {
         const { name, hole_count, location, holes } = course;
@@ -67,6 +96,23 @@ const updateCourse = async (course) => {
             where: { id },
             returning: true,
         });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
+const updateCourseHole = async (course) => {
+    try {
+        const { course_id, hole_id, hcp, par } = course;
+        const [results, metadata] = await  db.sequelize.query(
+            `UPDATE holes SET hcp_idx = :hcp, par = :par WHERE id = :hole_id and course_id = :course_id`,
+        {
+          replacements: { hcp, par, hole_id, course_id },
+          type: QueryTypes.UPDATE, // Specify the query type
+        }
+      );
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -158,9 +204,10 @@ const findAllActiveGolfCoursesForReg = async () => {
 
 /*  method to initialize Course page with 100 active courses to use as defaultOptions for AsyncSelect
     and also count total active courses for pagination component */
-const activeCoursesPageInit = async () => {
+const activeCoursesPageInit = async (pageSize) => {
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on c.creator_id = s.id WHERE c.status = ${'true'} LIMIT 100`
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT ${pageSize}`
     );
     const count = await Course.count({where: {status: true}});
     return {count, results};
@@ -168,9 +215,10 @@ const activeCoursesPageInit = async () => {
 
 /*  method to initialize Course page with 100 inactive courses to use as defaultOptions for AsyncSelect
     and also count total inactive courses for pagination component */
-const inactiveCoursesPageInit = async () => {
+const inactiveCoursesPageInit = async (pageSize) => {
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on c.creator_id = s.id WHERE c.status = ${'false'} LIMIT 100`
+        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        c.creator_id = s.id WHERE c.status = ${'false'} LIMIT ${pageSize}`
     );
     const count = await Course.count({where: {status: false}});
     return {count, results};
@@ -196,8 +244,11 @@ const status = async (contest) => {
 
 module.exports = {
     findById,
+    search,
+    paginateFetch,
     createGolfCourse,
     updateCourse,
+    updateCourseHole,
     updateCourseHoleCount,
     findAllActiveGolfCoursesForGame,
     findAllActiveGolfCoursesForReg,

@@ -1,10 +1,11 @@
-const { Sequelize } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const sequelize = require('./sequelize-db-connect');
 
 const db = {};
 
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
+db.Op = Op;
 
 db.users = require('../entities/users')(sequelize, Sequelize);
 db.blurHash = require('../entities/client_blurhash')(sequelize, Sequelize);

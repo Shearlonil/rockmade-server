@@ -25,7 +25,6 @@ const createGame = async (creator_id, game) => {
             ]
         });
         if(course){
-            console.log(course);
             const date = format(startDate, "yyyy-MM-dd");
             return await db.sequelize.transaction( async (t) => {
                 const holeArr = [];
