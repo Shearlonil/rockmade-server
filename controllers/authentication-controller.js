@@ -9,6 +9,7 @@ const otpMailService = require('../api-services/mail-otp-service');
 const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
 const generateOTP = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
+const { encrypt } = require('../utils/crypto-helper');
 
 const clientLogin = async (req, res) => {
     const { email, pw } = req.body;
@@ -25,7 +26,7 @@ const clientLogin = async (req, res) => {
         const match = await bcrypt.compare(pw, found.pw);
         if(match) {
             //  set mode in found to be used in refresh token creation. 0 for Staff, 1 for Client
-            found.mode = 1;
+            found.mode = encrypt('1');
             // create jwt access token
             const accessToken = createClientAccessToken(found);
             // create jwt refresh token
@@ -62,7 +63,7 @@ const staffLogin = async (req, res) => {
         const match = await bcrypt.compare(pw, found.pw);
         if(match) {
             //  set mode in found to be used in refresh token creation. 0 for Staff, 1 for Client
-            found.mode = 0;
+            found.mode = encrypt('0');
             // create jwt access token
             const accessToken = createStaffAccessToken(found);
             // create jwt refresh token

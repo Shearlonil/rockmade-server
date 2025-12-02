@@ -12,6 +12,7 @@ const staffService = require('../api-services/staff-service');
 const mailOtpService = require('../api-services/mail-otp-service');
 const schema = require('../yup-schemas/staff-schema');
 const { routeEmailParamSchema, routeStringMiscParamSchema, routePasswordParamSchema, routePositiveNumberMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { decrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
     try {
@@ -22,10 +23,10 @@ const findById = async (req, res) => {
     }
 };
 
-const findByIdWithCreator = async (req, res) => {
+const findByIdWithAuths = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await staffService.findByIdWithCreator(req.params.id));
+        res.status(200).json(await staffService.findByIdWithAuths(req.params.id));
     } catch (error) {
         res.status(400).json({'message': error.message});
     }
@@ -61,52 +62,59 @@ const findAll = async (req, res) => {
     }
 }
 
-const listStaff = async (req, res) => {
-    // endpoint will receive an object of form {limit, offset, status}. limit and offset are for Sequelize while status represents active/non active
-    // validate req.body
+const search = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.body.limit);
-        routePositiveNumberMiscParamSchema.validateSync(req.body.offset);
-        // routeEmailParamSchema.validateSync(req.body.email);
-        if(req.whom.type) {
-            throw new Error("Not Allowed");
-        }
-        res.status(200).json(await staffService.listStaff(req.body));
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        routeBooleanParamSchema.validateSync(req.query.status);
+        res.status(200).json( await staffService.search(req.query) );
     } catch (error) {
-        res.status(400).json({'message': error.message});
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const paginateFetch = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.pageSize);
+        routeBooleanParamSchema.validateSync(req.query.status);
+        res.status(200).json( await staffService.paginateFetch(req.query) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
     }
 }
 
 const updateStaffRoles = async (req, res) => {
     // endpoint will receive an array of roles in number format
     try {
-        // account cannot edit itself
-        if(req.whom.id === req.body.staff_id) {
-            res.sendStatus(401);
+        if(req.whom.id === req.body.id){
+            // account cannot edit itself
+            return res.sendStatus(404);
         }
+        console.log(req.whom.roles, req.body.authorities);
         /*  updater cannot add authorities they don't have
             Algorithm returns false if a role which the current user doesn't have is found in the list of roles to be added to edited/updated account   
             returns undefined for empty list or truth case (supplied role list contains roles present in the current user making changes or updating account    */
-        const result = req.body.authorities.map( role => req.whom.roles.includes(role) ).find(val => val === false);
+        const result = req.body.authorities.map( role => req.whom.roles.includes(role.code) ).find(val => val === false);
         if(result === false) {
-            res.sendStatus(401); // Unauthorized
+            return res.sendStatus(403); // Forbidden
         }
-        res.status(200).json(await staffService.updateAuthorities(req.body));
+        await staffService.updateAuthorities(req.body)
+        res.sendStatus(200);
     } catch (error) {
         res.status(400).json({'message': error.message});
     }
 }
 
-const changeStaffStatus = async (req, res) => {
+const status = async (req, res) => {
     // endpoint will receive an object of form {staff_id, status}.
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.body.staff_id);
+        routePositiveNumberMiscParamSchema.validateSync(req.body.id);
         routeBooleanParamSchema.validateSync(req.body.status);
-        if(req.whom.type) {
-            // client cannot edit staff account
-            throw new Error("Not Allowed");
+        if(req.whom.id === req.body.id){
+            // can't delete yourself
+            return res.sendStatus(404);
         }
-        res.status(200).json( await staffService.changeStaffStatus(req.body));
+        res.status(200).json( await staffService.status(req.body));
     } catch (error) {
         res.status(400).json({'message': error.message});
     }
@@ -121,7 +129,7 @@ const registerStaff = async (req, res) => {
         const oneTimePass = generateOTP(6);
         req.body.pw = oneTimePass;
         // create staff account
-        await staffService.register(req.body, req.whom.id);
+        const staff = await staffService.register(req.body, req.whom.id);
 
         const transporter = nodemailer.createTransport({
             host: process.env.MAIL_SERVICE_HOST,
@@ -147,7 +155,7 @@ const registerStaff = async (req, res) => {
                 await staffService.deleteAccount(email);
                 res.status(500).json({'message': error.response });
             } else {
-                res.status(201).json({'message': 'Account creation successful'});
+                res.status(201).json(staff);
             }
         });
     } catch (error) {
@@ -280,6 +288,10 @@ const removeUnverifiedMail = async (req, res) => {
 }
 
 const countActiveStaff = async (req, res) => {
+    const mode = decrypt(req.whom.mode);
+    if(mode !== '0'){
+        return res.sendStatus(404);
+    }
     try {
         res.status(200).json(await staffService.countActiveStaff());
     } catch (error) {
@@ -288,11 +300,28 @@ const countActiveStaff = async (req, res) => {
 }
 
 const getAuthorities = async (req, res) => {
+    const mode = decrypt(req.whom.mode);
+    if(mode !== '0'){
+        return res.sendStatus(404);
+    }
     res.status(200).json( await staffService.getAuthorities());
 };
 
+const activeStaffPageInit = async (req, res) => {
+    try {
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '0'){
+            return res.sendStatus(404);
+        }
+        routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
+        res.status(200).json(await staffService.activeStaffPageInit(req.params.pageSize));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 router.route('/register').post( verifyAccessToken, validate(schema), preAuthorize(authorities.addStaffAccount.code), registerStaff );
-router.route('/auths').get( verifyAccessToken, preAuthorize(authorities.addStaffAccount.code), getAuthorities );
+router.route('/auths').get( verifyAccessToken, getAuthorities );
 router.route('/unverified-mails').get( verifyAccessToken, countUnverifiedMails );
 router.route('/unverified-mails/view').get( verifyAccessToken, preAuthorize(authorities.viewClients.code), getUnverifiedMails );
 router.route('/unverified-mails/clear').get( verifyAccessToken, preAuthorize(authorities.viewClients.code), clearAllUnverifiedMails );
@@ -301,13 +330,15 @@ router.route('/active-staff').get( verifyAccessToken, countActiveStaff );
 router.route('/update').put( verifyAccessToken, validate(schema), update );
 router.route('/update-pw').put( verifyAccessToken, updatePassword );
 router.route('/reset-pw').put( resetPassword );
-router.route('/status').put( verifyAccessToken, preAuthorize(authorities.activateDeactiveteAccount.code), changeStaffStatus );
-router.route('/list').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), listStaff );
+router.route('/status').put( verifyAccessToken, preAuthorize(authorities.activateDeactiveteAccount.code), status );
+router.route('/search/page/:pageNumber').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), paginateFetch );
+router.route('/query').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), search );
 router.route('/all').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), findAll );
-router.route('/update-roles').put( verifyAccessToken, preAuthorize(authorities.updateStaffRoles.code), updateStaffRoles );
+router.route('/roles/update').put( verifyAccessToken, preAuthorize(authorities.updateStaffRoles.code), updateStaffRoles );
 router.route('/search').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByEmail );
 router.route('/profile').get( verifyAccessToken, myProfile );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findById );
-router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByIdWithCreator );
+router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByIdWithAuths );
+router.route('/active/init/:pageSize').get( verifyAccessToken, activeStaffPageInit );
 
 module.exports = router;

@@ -8,12 +8,21 @@ const preAuthorize = require('../middleware/verify-authorities');
 const contestService = require('../api-services/contest-service');
 const validate = require('../middleware/schemer-validator');
 const schema = require('../yup-schemas/contests-holes-update-schema');
+const { decrypt } = require('../utils/crypto-helper');
+
+const findById = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        res.status(200).json( await contestService.findById(req.params.id) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
 
 const create = async (req, res) => {
     try {
         routeStringMiscParamSchema.validateSync(req.params.name);
-        await contestService.create(req.whom.id, req.params.name);
-        res.sendStatus(200);
+        res.status(200).json(await contestService.create(req.whom.id, req.params.name));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -70,11 +79,53 @@ const findAllActive = async (req, res) => {
     }
 };
 
+const activeContestsPageInit = async (req, res) => {
+    try {
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '0'){
+            return res.sendStatus(404);
+        }
+        routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
+        res.status(200).json(await contestService.activeContestsPageInit(req.params.pageSize));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const search = async (req, res) => {
+    try {
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '0'){
+            return res.sendStatus(404);
+        }
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        routeBooleanParamSchema.validateSync(req.query.status);
+        res.status(200).json( await contestService.search(req.query) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const paginateFetch = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.pageSize);
+        routeBooleanParamSchema.validateSync(req.query.status);
+        res.status(200).json( await contestService.paginateFetch(req.query) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
 router.route('/create/:name').post( verifyAccessToken, preAuthorize(authorities.createContest.code), create );
 router.route('/update').put( verifyAccessToken, preAuthorize(authorities.updateContest.code), update );
 router.route('/holes/update').put( verifyAccessToken, validate(schema), preAuthorize(authorities.updateContest.code), updateHoles );
 router.route('/hole/remove').put( verifyAccessToken, preAuthorize(authorities.updateContest.code), removeHole );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteActivateContest.code), status );
+router.route('/active/init/:pageSize').get( verifyAccessToken, activeContestsPageInit );
 router.route('/active/all').get( findAllActive );
+router.route('/search/:id').get( verifyAccessToken, findById );
+router.route('/search/page/:pageNumber').get( verifyAccessToken, paginateFetch );
+router.route('/query').get( verifyAccessToken, search );
 
 module.exports = router;

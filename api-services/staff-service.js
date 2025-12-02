@@ -1,5 +1,7 @@
 const db = require('../config/entities-config');
+const { QueryTypes } = db.sequelize;
 const bcrypt = require('bcryptjs');
+
 const otpMailService = require('./mail-otp-service');
 const generateOTP = require('../utils/otp-generator');
 
@@ -15,7 +17,7 @@ const findById = async id => {
     });
 };
 
-const findByIdWithCreator = async id => {
+const findByIdWithAuths = async id => {
     const staff = await Staff.findByPk(id, {
         attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
         include: {
@@ -39,14 +41,35 @@ const findByEmail = async email => {
     });
 };
 
-const listStaff = async ( {offset, limit, status} ) => {
-    return await Staff.findAll(
-        { 
-            where: { status }, 
-            offset, 
-            limit
+const paginateFetch = async (prop) => {
+    // page: Current page number (e.g., 1-indexed), pageSize: Number of items per page
+    const {page, pageSize, status} = prop; 
+
+    let size = pageSize * 1;    // convert to number
+    const offset = (page - 1) * size;
+    const s = JSON.parse(status)
+
+    const [results, metadata] = await db.sequelize.query(
+        `select a.id, a.fname, a.lname, a.phone, a.email, a.sex, a.status, a.createdAt, b.fname as creator_fname, 
+        b.lname as creator_lname from staff b join staff a on a.acc_creator = b.id 
+        WHERE a.status = ${status} LIMIT ${size} OFFSET ${offset}`
+    );
+    const count = await Staff.count({where: {status: s}});
+    return {count, results};
+}
+
+const search = async (prop) => {
+    const { str, status } = prop;
+    const [results, metadata] = await db.sequelize.query(
+        `select a.id, a.fname, a.lname, a.phone, a.email, a.sex, a.status, a.createdAt, b.fname as creator_fname, 
+        b.lname as creator_lname from staff b join staff a on a.acc_creator = b.id 
+        WHERE (a.fname LIKE :searchPattern or a.lname LIKE :searchPattern) and a.status = ${status}`, {
+            replacements: { 
+                searchPattern: `%${str}%` 
+            },
         }
     );
+    return results;
 }
 
 const findAll = async () => {
@@ -55,24 +78,40 @@ const findAll = async () => {
     });
 }
 
-const changeStaffStatus = async ({staff_id, status}) => {
-    await Staff.update( {status}, { where: { id: staff_id }} );
+const status = async ({id, status}) => {
+    await Staff.update( {status}, { where: { id }} );
 }
 
-const updateAuthorities = async ({staff_id, authorities}) => {
-    // find associated industries
-    const auths = [];
-
-    for (const authority of authorities) {
-        const auth = await Authority.findOne({ where: { code: authority }});
-        if(!auth) {
-            throw new Error("Invalid authority specified with");
-        }
-        auths.push(auth);
+const updateAuthorities = async ({id, authorities}) => {
+    try {
+        await db.sequelize.transaction( async (t) => {
+            // FIRST: delete all previous foles for staff
+            await db.sequelize.query(
+                'DELETE jt FROM jt_staff_auths as jt WHERE jt.staff_id = :id',
+                {
+                    replacements: { id },
+                    type: QueryTypes.DELETE,
+                    transaction: t,
+                }
+            );
+            const auths = [];
+            for (const a of authorities) {
+                const auth = await Authority.findOne({ where: { code: a.code }}); // may use id too here
+                if(!auth) {
+                    throw new Error("Invalid authority specified");
+                }
+                auths.push(auth);
+                // await newStaff.addAuthority(auth, { transaction: t });
+            }
+            // find staff
+            const staff = await Staff.findByPk(id);
+            await staff.setAuthorities(auths, { transaction: t });
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
     }
-    // find staff
-    const staff = await Staff.findByPk(staff_id);
-    await staff.setAuthorities(auths);
 }
 
 const register = async (staff, creatorID) => {
@@ -82,15 +121,16 @@ const register = async (staff, creatorID) => {
     const mail = email.trim();
     // encrypt password
     const hashedPwd = await bcrypt.hash(pw, 12);
-    await db.sequelize.transaction( async (t) => {
+    return await db.sequelize.transaction( async (t) => {
         const newStaff = await Staff.create({ fname: f_name, lname: l_name, phone, pw: hashedPwd, email: mail, status: true, sex, acc_creator: creatorID }, { transaction: t });
-        for (const authority of authorities) {
-            const auth = await Authority.findOne({ where: { code: authority.value }});
+        for (const authCode of authorities) {
+            const auth = await Authority.findOne({ where: { code: authCode }});
             if(!auth) {
                 throw new Error("Invalid authority specified");
             }
             await newStaff.addAuthority(auth, { transaction: t });
         }
+        return newStaff;
     } );
 };
 
@@ -166,9 +206,21 @@ const getAuthorities = async () => {
     return await Authority.findAll();
 };
 
+/*  method to initialize Users page with 100 active users to use as defaultOptions for AsyncSelect
+    and also count total active users for pagination component */
+const activeStaffPageInit = async (pageSize) => {
+    const [results, metadata] = await db.sequelize.query(
+        `select a.id, a.fname, a.lname, a.phone, a.email, a.sex, a.status, a.createdAt, b.fname as creator_fname, 
+        b.lname as creator_lname from staff b join staff a on a.acc_creator = b.id WHERE a.status = ${'true'} 
+        LIMIT ${pageSize}`
+    );
+    const count = await Staff.count({where: {status: true}});
+    return {count, results};
+}
+
 module.exports = {
     findById,
-    findByIdWithCreator,
+    findByIdWithAuths,
     deleteAccount,
     findByEmail,
     updateAuthorities,
@@ -177,10 +229,12 @@ module.exports = {
     findForPassWord,
     updatePassword,
     resetPassword,
-    listStaff,
     findAll,
-    changeStaffStatus,
+    status,
     countUnverifiedMails,
     countActiveStaff,
     getAuthorities,
+    activeStaffPageInit,
+    paginateFetch,
+    search,
 };

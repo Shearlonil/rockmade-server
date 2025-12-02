@@ -4,16 +4,47 @@ const { QueryTypes } = db.sequelize;
 const Contest = db.contests;
 const Hole = db.holes;
 
+const findById = async (id) => {
+    return await Contest.findByPk(id);
+}
+
 const create = async (creator_id, name) => {
     try {
-        await db.sequelize.transaction( async (t) => {
-            await Contest.create({ name, creator_id }, { transaction: t });
-        } );
+        return await Contest.create({ name, creator_id }, { returning: true, });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 
     }
+}
+
+const paginateFetch = async (prop) => {
+    // page: Current page number (e.g., 1-indexed), pageSize: Number of items per page
+    const {page, pageSize, status} = prop; 
+
+    let size = pageSize * 1;    // convert to number
+    const offset = (page - 1) * size;
+    const s = JSON.parse(status)
+
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
+        c.creator_id = s.id WHERE c.status = ${status} LIMIT ${size} OFFSET ${offset}`
+    );
+    const count = await Contest.count({where: {status: s}});
+    return {count, results};
+}
+
+const search = async (prop) => {
+    const { str, status } = prop;
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
+        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = ${status}`, {
+            replacements: { 
+                searchPattern: `%${str}%` 
+            },
+        }
+    );
+    return results;
 }
 
 const update = async (contest) => {
@@ -93,11 +124,26 @@ const findAllActive = async () => {
     return await Contest.findAll({ where: { status: true } });
 }
 
+/*  method to initialize Contests page with 100 active contests to use as defaultOptions for AsyncSelect
+    and also count total active contests for pagination component */
+const activeContestsPageInit = async (pageSize) => {
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
+        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT ${pageSize}`
+    );
+    const count = await Contest.count({where: {status: true}});
+    return {count, results};
+}
+
 module.exports = {
+    findById,
+    paginateFetch,
+    search,
     create,
     update,
     updateHoles,
     removeHole,
     status,
     findAllActive,
+    activeContestsPageInit,
 };

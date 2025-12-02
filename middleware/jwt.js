@@ -32,7 +32,7 @@ const createClientAccessToken = (client) => {
             lname: client.lname,
             sex: client.gender,
             email: client.email,
-            // phone: client.phone,
+            mode: client.mode,
             regDate: client.createdAt,
             hcp: client.hcp,
             sub
@@ -51,6 +51,7 @@ const createStaffAccessToken = (staff) => {
             email: staff.email,
             regDate: staff.createdAt,
             sex: staff.sex,
+            mode: staff.mode,
             roles: authorities
         },
     }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '10m'} );
@@ -65,6 +66,7 @@ const verifyAccessToken = (req, res, next) => {
         process.env.ACCESS_TOKEN_SECRET,
         (err, decoded) => {
             if(err) {
+                console.log(err);
                 if(err.name === 'TokenExpiredError') {
                     return res.sendStatus(401); // Unauthorized, A 401 typically signifies an expired access token.
                 }
@@ -101,9 +103,11 @@ const handleRefresh = (req, res) => {
                 return res.sendStatus(403); // Forbidden
             }
             // create a new access token based on mode and send back to front end
-            if(decoded.whom.mode === 0){
+            const mode = decrypt(decoded.whom.mode);
+            if(mode === '0'){
                 // find staff with email
                 const staff = await staffService.findByEmail(decrypt(decoded.whom.iv));
+                staff.mode = decoded.whom.mode;
                 // check status
                 if(!staff || staff.status === false){
                     // if account deactivated, clear cookies
@@ -117,9 +121,10 @@ const handleRefresh = (req, res) => {
                 // res.setHeader("X-Suggested-Filename", originalname);
                 res.setHeader('authorization', 'Bearer ' + accessToken);
                 res.sendStatus(200);
-            }else {
+            }else if(mode === '1'){
                 // find client with email
                 const client = await clientService.findByEmail(decrypt(decoded.whom.iv));
+                client.mode = decoded.whom.mode;
                 // check status
                 if(!client || client.status === false){
                     // if account deactivated, clear cookies
@@ -133,6 +138,8 @@ const handleRefresh = (req, res) => {
                 // res.setHeader("X-Suggested-Filename", originalname);
                 res.setHeader('authorization', 'Bearer ' + accessToken);
                 res.sendStatus(200);
+            }else {
+                return res.sendStatus(403); // Forbidden
             }
         }
     );

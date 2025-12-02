@@ -8,6 +8,7 @@ const { schema, courseUpdate, courseHoleCountUpdateSchema, courseHoleUpdateSchem
 const preAuthorize = require('../middleware/verify-authorities');
 const courseService = require('../api-services/course-service');
 const { routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { decrypt } = require('../utils/crypto-helper');
 
 const createGolfCourse = async (req, res) => {
     try {
@@ -94,8 +95,9 @@ const findAllActiveGolfCoursesForReg = async (req, res) => {
 
 const activeCoursesPageInit = async (req, res) => {
     try {
-        if(!req.whom.roles || req.whom.roles.length < 1){
-            res.sendStatus(404);
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '0'){
+            return res.sendStatus(404);
         }
         routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
         res.status(200).json(await courseService.activeCoursesPageInit(req.params.pageSize));
@@ -106,8 +108,9 @@ const activeCoursesPageInit = async (req, res) => {
 
 const inactiveCoursesPageInit = async (req, res) => {
     try {
-        if(!req.whom.roles || req.whom.roles.length < 1){
-            res.sendStatus(404);
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '0'){
+            return res.sendStatus(404);
         }
         routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
         res.status(200).json(await courseService.inactiveCoursesPageInit(req.params.pageSize));
