@@ -14,8 +14,7 @@ const createGame = async (req, res) => {
         if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
             throw new Error("Account doesn't support feature. Please subscribe");
         }
-        await gameService.createGame(req.whom.id, req.body);
-        res.sendStatus(200);
+        res.status(200).json(await gameService.createGame(req.whom.id, req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }

@@ -23,8 +23,8 @@ module.exports = (sequelize, Sequelize) => {
         },
     }, {
         tableName: 'game_hole_contests',
-        timestamps: true,
-        createdAt: true,
+        timestamps: false,
+        createdAt: false,
         updatedAt: false
     });  
     return GameHoleContests;

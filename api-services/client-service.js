@@ -209,48 +209,45 @@ const changePassword = async (id, profile) => {
     return await findById(id);
 };
 
-const myJobs = async (id) => {
-    const client = await User.findByPk(id);
-    /*
-    , {
-        include: [
-            {
-                model: JobAdvert,
-            },
-            {
-                model: JobAdvert,
-                as: 'advert',
-            },
-        ]
-    }
-    */
-    if(client.acc_type === 'E') {
-        // find posted jobs by employer
-        const jobs = await client.getJobAdverts({
-            include: [
-                {
-                    model: JobLocation,
-                },
-                {
-                    model: JobIndustry,
-                },
-            ]
-        });
-        return jobs
-    }else {
-        // find jobs applied by client
-        const jobs = await client.getAdvert({
-            include: [
-                {
-                    model: JobLocation,
-                },
-                {
-                    model: JobIndustry,
-                },
-            ]
-        });
-        return jobs;
-    }
+const dashboardInfo = async (id) => {
+    // Home club data
+    const [hcResult, hcMetadata] = await db.sequelize.query(
+        `select c.id, c.name, c.no_of_holes, u.id as user_id, u.course_id from courses c join users u on 
+        u.course_id = c.id and u.id = :id`,
+        {
+            replacements: { id },
+        }
+    );
+    // Ongoing Games/Rounds
+    const [ongoingRoundsResult, ongoingRoundsMetadata] = await db.sequelize.query(
+        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+        games.createdAt from user_game_group join games on user_game_group.game_id = games.id where user_id = :id 
+        and games.status < 3`,
+        {
+            replacements: { id },
+        }
+    );
+    // Ongoing Games/Rounds
+    const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
+        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+        games.createdAt from user_game_group join games on user_game_group.game_id = games.id where user_id = :id 
+        and games.status = 3 limit 5`,
+        {
+            replacements: { id },
+        }
+    );
+    // Curses and number of games played
+    const [results, metadata] = await db.sequelize.query(
+        `select count(distinct course_id) as courses_played, count(distinct game_id) as games_played from 
+        user_game_group join games on user_game_group.game_id = games.id where user_id = :id`,
+        {
+            replacements: { id },
+        }
+    );
+    results[0].home_club = hcResult[0];
+    results[0].ongoing_rounds = ongoingRoundsResult;
+    results[0].recent_games = recentGamesResult;
+    return results[0];
 }
 
 const listClients = async ( {name, idOffset, limit, acc_type}, pageSpan ) => {
@@ -315,7 +312,7 @@ module.exports = {
     updatePassword,
     resetPassword,
     changePassword,
-    myJobs,
+    dashboardInfo,
     listClients,
     changeClientStatus,
     removeMyIndustry,

@@ -25,6 +25,14 @@ const findById = async (req, res) => {
     }
 };
 
+const dashboardInfo = async (req, res) => {
+    try {
+        res.status(200).json(await clientService.dashboardInfo(req.whom.id));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const myProfile = async (req, res) => {
     try {
         res.status(200).json(await clientService.findById(req.whom.id));
@@ -237,6 +245,7 @@ router.route('/email/update').put( verifyAccessToken, updateEmail );
 router.route('/search').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );
+router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
 router.route('/dp/:id').get( verifyAccessToken, downnloadProfileImg );
 
 module.exports = router;

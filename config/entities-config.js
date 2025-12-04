@@ -211,14 +211,28 @@ db.games.belongsTo(db.users, {
 // ManyToMany relationship between users and games (using groups as user must be in a group to play a game)
 db.users.belongsToMany(db.games, {
     as: 'game',
-    through: db.userGameGroup,
+    through: {
+        model: db.userGameGroup,
+        /*  Disable the default unique constraint which creates constraints using userId and gameId. This isn't
+            the desired constraints. Constraints here should be on user_id, game_id, name and round_no all
+            defined in the junction table user_game_group declared by userGameGroup
+        */
+        unique: false,
+    },
     foreignKey: 'user_id',
     otherKey: 'game_id',
     onDelete: 'CASCADE',
 });
 db.games.belongsToMany(db.users, {
     as: 'user',
-    through: db.userGameGroup,
+    through: {
+        model: db.userGameGroup,
+        /*  Disable the default unique constraint which creates constraints using userId and gameId. This isn't
+            the desired constraints. Constraints here should be on user_id, game_id, name and round_no all
+            defined in the junction table user_game_group declared by userGameGroup
+        */
+        unique: false,
+    },
     foreignKey: 'game_id',
     otherKey: 'user_id',
 });

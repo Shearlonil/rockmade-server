@@ -6,10 +6,11 @@ const Course = db.courses;
 const Game = db.games;
 const Hole = db.holes;
 const Contest = db.contests;
+const GameHoleContest = db.gameHoleContests;
 
 const createGame = async (creator_id, game) => {
     try {
-        const { name, course_id, hole_mode, startDate, mode, contests } = game;
+        const { name, course_id, hole_mode, startDate, mode, contests = [] } = game;
         const course = await Course.findByPk(course_id, {
             where: { status: true },
             include: [
@@ -27,33 +28,22 @@ const createGame = async (creator_id, game) => {
         if(course){
             const date = format(startDate, "yyyy-MM-dd");
             return await db.sequelize.transaction( async (t) => {
-                const holeArr = [];
-                const constArr = [];
-                for (const c of contests) {
-                    const dbContest = await Contest.findByPk(c.id);
-                    // console.log(c.holes[0]);
-                    for(const hole_no of c.holes){
-                        const hole = course.Holes.find(h => h.hole_no === hole_no);
-                        // console.log(hole);
-                        const contest = hole.contest.find(hc => hc.id === dbContest.id);
-                        const [results, metadata] = await db.sequelize.query(
-                            'INSERT INTO jt_holes_contests (hole_id, contest_id) VALUES (:val1, :val2)',
-                            {
-                                replacements: { val1: hole.dataValues.id, val2: contest.id },
-                                type: QueryTypes.INSERT,
-                                transaction: t, // Pass the transaction object
-                            }
-                        );
-                        // holeArr.push(hole);
-                        // constArr.push(contest)
-                        // await hole.addContest(contest, {transaction: t});
-                    }
-                }
-                // console.log(holeArr.length, constArr.length);
-                return await Game.create( 
+                const game = await Game.create( 
                     { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id }, 
                     { transaction: t }
                 );
+                for (const c of contests) {
+                    const dbContest = await Contest.findByPk(c.id);
+                    for(const hole_no of c.holes){
+                        const hole = course.Holes.find(h => h.hole_no === hole_no);
+                        const contest = hole.contest.find(hc => hc.id === dbContest.id);
+                        await GameHoleContest.create(
+                            {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id},
+                            { transaction: t }
+                        );
+                    }
+                }
+                return game;
             });
         }else {
             throw new Error("Invalid Golf Course specified");
