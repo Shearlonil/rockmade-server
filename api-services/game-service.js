@@ -114,6 +114,17 @@ const updateGame = async (creator_id, game) => {
                 status: true,
                 id: course_id,
             },
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest'
+                        }
+                    ],
+                },
+            ]
         });
         if(course){
             return await db.sequelize.transaction( async (t) => {
@@ -146,6 +157,9 @@ const updateGame = async (creator_id, game) => {
                     ]
                 });
                 if(game){
+                            for (const element of game.GameHoleContests) {
+                                console.log(element.dataValues);
+                            }
                     // if same hole mode
                     if(game.hole_mode == hole_mode){
                         // if not same course, migrate contests in previous course to new course of same hole (if supported by hole. If not, then delete contest)
@@ -160,6 +174,7 @@ const updateGame = async (creator_id, game) => {
                     game.hole_mode = hole_mode;
                     game.date = date;
                     await game.save();
+                    throw new Error('Testing Testing');
                 }else {
                     throw new Error('Invalid Game specified');
                 }
