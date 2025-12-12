@@ -6,6 +6,8 @@ const Course = db.courses;
 const Staff = db.staff;
 const Hole = db.holes;
 const Contest = db.contests;
+const CourseHole = db.courseHoles;
+const HoleContest = db.tblJoinHolesContests;
 
 const findById = async (id) => {
     return await Course.findByPk(id,
@@ -13,10 +15,16 @@ const findById = async (id) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contest',
+                            through: {
+                                where: {
+                                    course_id: id,
+                                }
+                            },
                         }
                     ],
                 },
@@ -65,11 +73,16 @@ const createGolfCourse = async (creator_id, course) => {
                     
                 for (const hole of holes) {
                     const { hole_no, hcp, par, contests = [] } = hole;
-                    const h = await Hole.create({ hole_no, hcp_idx: hcp, par, course_id: c.id }, { transaction: t });
+                    const h = await Hole.findOne({
+                        where: { 
+                            hole_no,
+                        },
+                    });
+                    await CourseHole.create({ hole_id: h.id, hcp_idx: hcp, par, course_id: c.id }, { transaction: t });
                     for (const id of contests) {
                         const contest = await Contest.findByPk(id);
                         if(contest){
-                            await h.addContest(contest, { transaction: t });
+                            await HoleContest.create({hole_id: h.id, contest_id: contest.id, course_id: c.id}, { transaction: t });
                         }else {
                             throw new Error("Invalid Contest specified for hole " + hole_no);
                         }
@@ -127,9 +140,13 @@ const updateCourseHoleCount = async (course) => {
 
         if(holes.length === 9 || holes.length === 18){
             return await db.sequelize.transaction( async (t) => {
+                const c = await Course.findByPk(course_id);
+                if(c === null){
+                    throw new Error("Course not found");
+                }
                 // FIRST: delete all contests associated with previous holes for this course
                 await db.sequelize.query(
-                    'DELETE jt FROM jt_holes_contests as jt inner join holes as h on h.id = jt.hole_id WHERE h.course_id = :course_id',
+                    'DELETE jt FROM jt_holes_contests as jt inner join holes as h on h.id = jt.hole_id and jt.course_id = :course_id WHERE h.course_id = :course_id',
                     {
                         replacements: { course_id },
                         type: QueryTypes.DELETE,
@@ -138,7 +155,7 @@ const updateCourseHoleCount = async (course) => {
                 );
                 // SECOND: delete all previous holes for this course
                 await db.sequelize.query(
-                    'DELETE FROM holes WHERE holes.course_id = :course_id',
+                    'DELETE FROM course_holes WHERE course_holes.course_id = :course_id',
                     {
                         replacements: { course_id },
                         type: QueryTypes.DELETE,
@@ -150,15 +167,15 @@ const updateCourseHoleCount = async (course) => {
                 const holesArr = [];
                 for (const hole of holes) {
                     const { hole_no, hcp, par } = hole;
-                    const h = await Hole.create({ hole_no, hcp_idx: hcp, par, course_id }, { transaction: t });
+                    const h = await Hole.findOne({
+                        where: { 
+                            hole_no,
+                        },
+                    });
+                    await CourseHole.create({ hole_id: h.id, hcp_idx: hcp, par, course_id: c.id }, { transaction: t });
                     holesArr.push(h);
                 }
-
                 // LAST: update hole count (no_of_holes field) in course table
-                const c = await Course.findByPk(course_id);
-                if(c === null){
-                    throw new Error("Course not found");
-                }
                 await Course.update({ no_of_holes: holes.length }, {
                     where: { id: course_id },
                     transaction: t,
@@ -188,10 +205,16 @@ const gameCourseSearch = async (str) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contest',
+                            through: {
+                                where: {
+                                    course_id: id,
+                                }
+                            },
                         }
                     ],
                 },
@@ -217,10 +240,16 @@ const limitGameCourseSearch = async (pageSize) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
                             as: 'contest',
+                            through: {
+                                where: {
+                                    course_id: id,
+                                }
+                            },
                         }
                     ],
                     duplicating: false,
@@ -238,10 +267,16 @@ const findAllActive = async () => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contest',
+                            through: {
+                                where: {
+                                    course_id: id,
+                                }
+                            },
                         }
                     ],
                 },

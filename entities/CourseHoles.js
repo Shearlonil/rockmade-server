@@ -1,6 +1,6 @@
 module.exports = (sequelize, Sequelize) => {
   
-    const Holes = sequelize.define('Holes', {
+    const CourseHoles = sequelize.define('CourseHoles', {
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
@@ -11,16 +11,31 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying hole.
             primaryKey:true
         },
-        hole_no: {
+        hole_id: {
+            type: Sequelize.BIGINT,
+            allowNull:false,
+            notEmpty: true
+        },
+        course_id: {
+            type: Sequelize.BIGINT,
+            allowNull:false,
+            notEmpty: true
+        },
+        hcp_idx: {
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
+        par: {
             type: Sequelize.INTEGER,
             allowNull:false,
             notEmpty: true
         },
     }, {
-        tableName: 'holes',
+        tableName: 'course_holes',
         timestamps: false,
         createdAt: false,
         updatedAt: false
     });  
-    return Holes;
+    return CourseHoles;
 };

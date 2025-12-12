@@ -3,6 +3,7 @@ const { QueryTypes } = db.sequelize;
 
 const Contest = db.contests;
 const Hole = db.holes;
+const HoleContest = db.tblJoinHolesContests;
 
 const findById = async (id) => {
     return await Contest.findByPk(id);
@@ -74,7 +75,7 @@ const updateHoles = async (contests) => {
                 if(contest){
                     for (const hole_id of c.holes) {
                         const h = await Hole.findByPk(hole_id);
-                        await h.addContest(contest, { transaction: t });
+                        await HoleContest.create({hole_id: h.id, contest_id: contest.id, course_id: c.id}, { transaction: t });
                     }
                 }else {
                     throw new Error("Invalid Contest specified");
@@ -82,7 +83,8 @@ const updateHoles = async (contests) => {
             }
         });
     } catch (error) {
-         throw new Error(error.message); 
+        console.log(error);
+        throw new Error(error.message); 
     }
 }
 

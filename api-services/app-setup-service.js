@@ -7,6 +7,7 @@ const Staff = db.staff;
 const Authority = db.staffAuths;
 const terms = db.termsAndAgreement;
 const Country = db.countries;
+const Hole = db.holes;
 
 const setUp = async () => {
     try {
@@ -25,6 +26,7 @@ const setUp = async () => {
             ];
             await terms.create({value: arr}, { transaction: t });
             await Country.create({name: "Nigeria", status: true, creator_id: admin.id}, { transaction: t });
+            await createHoles(t);
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
@@ -48,6 +50,12 @@ const createAuths = async (t, admin) => {
         const { name, code, desc } = authorities[key];
         const auth = await Authority.create({ name, code, desc }, { transaction: t });
         await admin.addAuthority(auth, { transaction: t });
+    }
+}
+
+const createHoles = async (t) => {
+    for (let n = 1; n <= 18; n++) {
+        await Hole.create({ hole_no: n }, { transaction: t });
     }
 }
 

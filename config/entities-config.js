@@ -12,8 +12,9 @@ db.blurHash = require('../entities/client_blurhash')(sequelize, Sequelize);
 db.courses = require('../entities/courses')(sequelize, Sequelize);
 db.games = require('../entities/games')(sequelize, Sequelize);
 db.holes = require('../entities/holes')(sequelize, Sequelize);
+db.courseHoles = require('../entities/CourseHoles')(sequelize, Sequelize);
 db.contests = require('../entities/contests')(sequelize, Sequelize);
-db.tblJoinHolesContests = require('../entities/tbl-join-holes-contests')(sequelize, Sequelize, db.holes, db.contests);
+db.tblJoinHolesContests = require('../entities/tbl-join-holes-contests')(sequelize, Sequelize, db.holes, db.contests, db.courses);
 db.userGameGroup = require('../entities/user-game-group')(sequelize, Sequelize);
 db.gameHoleRecords = require('../entities/game-hole-records')(sequelize, Sequelize);
 db.userHoleContestScores = require('../entities/user-hole-contest-scores')(sequelize, Sequelize);
@@ -88,19 +89,19 @@ db.users.belongsTo(db.courses, {
     }
 });
 
-// OneToMany relationship between courses and holes
-db.courses.hasMany(db.holes, {
-    foreignKey: {
-        // also set the foreign key name here to avoid sequelize adding column CourseId
-        name: 'course_id',
-        allowNull: false,
-    }
+// ManyToMany relationship between courses and holes
+db.courses.belongsToMany(db.holes, {
+    as: 'holes',
+    through: db.courseHoles,
+    foreignKey: 'course_id',
+    otherKey: 'hole_id',
+    onDelete: 'CASCADE',
 });
-db.holes.belongsTo(db.courses, {
-    foreignKey: {
-        name: 'course_id',
-        allowNull: false,
-    }
+db.holes.belongsToMany(db.courses, {
+    as: 'courses',
+    through: db.courseHoles,
+    foreignKey: 'hole_id',
+    otherKey: 'course_id',
 });
 
 // OneToMany relationship between courses and games
