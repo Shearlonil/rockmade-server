@@ -220,14 +220,15 @@ const dashboardInfo = async (id) => {
     );
     // Ongoing Games/Rounds
     const [ongoingRoundsResult, ongoingRoundsMetadata] = await db.sequelize.query(
-        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
-        games.createdAt from user_game_group join games on user_game_group.game_id = games.id where user_id = :id 
-        and games.status < 3`,
+        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, courses.name as course_name, 
+        games.createdAt, courses.id as course_id from user_game_group join games on user_game_group.game_id = games.id join courses on games.course_id = courses.id 
+        where user_id = :id and games.status < 3`,
         {
             replacements: { id },
         }
     );
-    // Ongoing Games/Rounds
+    // TODO: LAST 5 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
+    // Recent/last 5 games played
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
         `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
         games.createdAt from user_game_group join games on user_game_group.game_id = games.id where user_id = :id 
@@ -239,7 +240,7 @@ const dashboardInfo = async (id) => {
     // Curses and number of games played
     const [results, metadata] = await db.sequelize.query(
         `select count(distinct course_id) as courses_played, count(distinct game_id) as games_played from 
-        user_game_group join games on user_game_group.game_id = games.id where user_id = :id`,
+        user_game_group join games on user_game_group.game_id = games.id where user_id = :id and games.status = 3`,
         {
             replacements: { id },
         }

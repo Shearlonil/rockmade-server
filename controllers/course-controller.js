@@ -77,17 +77,44 @@ const paginateFetch = async (req, res) => {
     }
 }
 
-const findAllActiveGolfCoursesForGame = async (req, res) => {
+const findAllActive = async (req, res) => {
     try {
-        res.status(200).json(await courseService.findAllActiveGolfCoursesForGame());
+        res.status(200).json(await courseService.findAllActive());
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
 };
 
+const gameCourseSearch = async (req, res) => {
+    try {
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '1'){
+            return res.sendStatus(404);
+        }
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        res.status(200).json(await courseService.gameCourseSearch(req.query.str));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const limitGameCourseSearch = async (req, res) => {
+    try {
+        const mode = decrypt(req.whom.mode);
+        if(mode !== '1'){
+            return res.sendStatus(404);
+        }
+        routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
+        res.status(200).json(await courseService.limitGameCourseSearch(req.params.pageSize));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+// finding golf courses for player registration..... Hence, no need for token verification for this end-point
 const findAllActiveGolfCoursesForReg = async (req, res) => {
     try {
-        res.status(200).json(await courseService.findAllActiveGolfCoursesForGame());
+        res.status(200).json(await courseService.findAllActive());
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -95,10 +122,12 @@ const findAllActiveGolfCoursesForReg = async (req, res) => {
 
 const activeCoursesPageInit = async (req, res) => {
     try {
-        const mode = decrypt(req.whom.mode);
-        if(mode !== '0'){
-            return res.sendStatus(404);
-        }
+        // TODO: delete comments
+        // Only Staff memebers are allowed to view this end-point
+        // const mode = decrypt(req.whom.mode);
+        // if(mode !== '0'){
+        //     return res.sendStatus(404);
+        // }
         routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
         res.status(200).json(await courseService.activeCoursesPageInit(req.params.pageSize));
     } catch (error) {
@@ -135,7 +164,9 @@ router.route('/update').post( verifyAccessToken, validate(courseUpdate), preAuth
 router.route('/holes/update').post( verifyAccessToken, validate(courseHoleCountUpdateSchema), preAuthorize(authorities.updateCourse.code), updateCourseHoleCount );
 router.route('/hole/update').post( verifyAccessToken, validate(courseHoleUpdateSchema), preAuthorize(authorities.updateCourse.code), updateCourseHole );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteActivateCourse.code), status );
-router.route('/active/all').get( verifyAccessToken, findAllActiveGolfCoursesForGame );
+router.route('/active/all').get( verifyAccessToken, findAllActive );
+router.route('/games/init/:pageSize').get( verifyAccessToken, limitGameCourseSearch );
+router.route('/games/search').get( verifyAccessToken, gameCourseSearch );
 router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
 router.route('/active/init/:pageSize').get( verifyAccessToken, activeCoursesPageInit );
 router.route('/inactive/init/:pageSize').get( verifyAccessToken, inactiveCoursesPageInit );

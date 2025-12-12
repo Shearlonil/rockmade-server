@@ -1,18 +1,59 @@
 const db = require('../config/entities-config');
-const { format } = require('date-fns');
+const { Op } = require('sequelize');
 const { QueryTypes } = db.sequelize;
+const { format } = require('date-fns');
 
 const Course = db.courses;
 const Game = db.games;
 const Hole = db.holes;
 const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
+const UserGameGroup = db.userGameGroup;
+
+const findOngoingRoundById = async id => {
+    return await Game.findByPk(id, {
+        include: [
+            {
+                model: GameHoleContest,
+            },
+            {
+                model: Course,
+                include: [
+                    {
+                        model: Hole,
+                        include: [
+                            { 
+                                model: Contest,
+                                as: 'contest'
+                            }
+                        ],
+                    },
+                ]
+            }
+        ]
+    });
+};
+
+const rawFindOngoingRoundById = async id => {
+    // Ongoing Games/Rounds
+    const [ongoingRoundsResult, ongoingRoundsMetadata] = await db.sequelize.query(
+        `select games.id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, courses.name as course_name, 
+        courses.id as course_id, games.createdAt from games join courses on games.course_id = courses.id where games.id = :id and games.status < 3`,
+        {
+            replacements: { id },
+        }
+    );
+    return ongoingRoundsResult[0];
+};
 
 const createGame = async (creator_id, game) => {
     try {
         const { name, course_id, hole_mode, startDate, mode, contests = [] } = game;
-        const course = await Course.findByPk(course_id, {
-            where: { status: true },
+        const course = await Course.findOne({
+            where: { 
+                status: true,
+                id: course_id,
+            },
             include: [
                 {
                     model: Hole,
@@ -43,6 +84,14 @@ const createGame = async (creator_id, game) => {
                         );
                     }
                 }
+                await UserGameGroup.create({
+                    name: "A",
+                    round_no: 1,
+                    start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
+                    user_id: creator_id,
+                    game_id: game.id
+                }, 
+                { transaction: t })
                 return game;
             });
         }else {
@@ -55,6 +104,138 @@ const createGame = async (creator_id, game) => {
     }
 }
 
+const updateGame = async (creator_id, game) => {
+    /*  NOTE: Changing Hole mode (either from 18 to front 9 or back 9, or front 9 to back 9 or which every way, deletes all previously attached contests to the 
+        game   */
+    try {
+        const { game_id, name, course_id, hole_mode, startDate } = game;
+        const course = await Course.findOne({
+            where: { 
+                status: true,
+                id: course_id,
+            },
+        });
+        if(course){
+            return await db.sequelize.transaction( async (t) => {
+                const game = await Game.findOne({
+                    where: { 
+                        id: game_id,
+                        creator_id,
+                        status: {
+                            [Op.between] : [1, 2]
+                        }
+                    },
+                    include: [
+                        {
+                            model: GameHoleContest,
+                        },
+                        {
+                            model: Course,
+                            include: [
+                                {
+                                    model: Hole,
+                                    include: [
+                                        { 
+                                            model: Contest,
+                                            as: 'contest'
+                                        }
+                                    ],
+                                },
+                            ]
+                        }
+                    ]
+                });
+                if(game){
+                    // if same hole mode
+                    if(game.hole_mode == hole_mode){
+                        // if not same course, migrate contests in previous course to new course of same hole (if supported by hole. If not, then delete contest)
+                        if(game.course_id != course_id){
+                        }
+                    }else {
+                        // delete all attached contests regardless of course (new course or update retaining old course)
+                    }
+                    const date = format(startDate, "yyyy-MM-dd");
+                    game.name = name;
+                    game.course_id = course_id;
+                    game.hole_mode = hole_mode;
+                    game.date = date;
+                    await game.save();
+                }else {
+                    throw new Error('Invalid Game specified');
+                }
+                return game;
+            });
+        }else {
+            throw new Error("Invalid Golf Course specified");
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
+const updateGameContests = async (creator_id, game) => {
+    try {
+        const { course_id, game_id, contests = [] } = game;
+        const course = await Course.findOne({
+            where: { 
+                status: true,
+                id: course_id,
+            },
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest'
+                        }
+                    ],
+                },
+            ]
+        });
+        return await db.sequelize.transaction( async (t) => {
+            const game = await Game.findOne({
+                where: { creator_id, course_id, id: game_id },
+            });
+            if(game){
+                // FIRST: delete all contests associated with previous holes for this course
+                await db.sequelize.query(
+                    'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id',
+                    {
+                        replacements: { game_id },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                for (const c of contests) {
+                    const dbContest = await Contest.findByPk(c.id);
+                    for(const hole_no of c.holes){
+                        const hole = course.Holes.find(h => h.hole_no === hole_no);
+                        const contest = hole.contest.find(hc => hc.id === dbContest.id);
+                        await GameHoleContest.create(
+                            {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id},
+                            { transaction: t }
+                        );
+                    }
+                }
+            }else {
+                throw new Error('Invalid Game specified');
+            }
+            return game;
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
 module.exports = {
+    findOngoingRoundById,
+    rawFindOngoingRoundById,
     createGame,
+    updateGame,
+    updateGameContests,
 };

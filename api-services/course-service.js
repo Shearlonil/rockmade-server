@@ -1,5 +1,6 @@
 const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
+const { Op } = require('sequelize');
 
 const Course = db.courses;
 const Staff = db.staff;
@@ -175,10 +176,15 @@ const updateCourseHoleCount = async (course) => {
     }
 }
 
-const findAllActiveGolfCoursesForGame = async () => {
+const gameCourseSearch = async (str) => {
     return await Course.findAll(
         { 
-            where: { status: true },
+            where: { 
+                status: true,
+                name: {
+                    [Op.like]: `%${str}%`
+                }
+            },
             include: [
                 {
                     model: Hole,
@@ -194,10 +200,52 @@ const findAllActiveGolfCoursesForGame = async () => {
     );
 }
 
-const findAllActiveGolfCoursesForReg = async () => {
+const limitGameCourseSearch = async (pageSize) => {
+    /*  Relation's attribute in top level where clause with limit throws exception.
+        Fix is to add the duplicating attribute with value false in the include attribute
+        refs:
+        https://github.com/sequelize/sequelize/issues/15121
+        https://github.com/sequelize/sequelize/issues/3007
+        https://github.com/sequelize/sequelize/blob/master/test/integration/include/findAll.test.js#L1186
+    */
+    let limit = pageSize * 1;    // convert to number
+    return await Course.findAll(
+        { 
+            where: { 
+                status: true,
+            },
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest',
+                        }
+                    ],
+                    duplicating: false,
+                },
+            ],
+            limit,
+        }
+    );
+}
+
+const findAllActive = async () => {
     return await Course.findAll(
         { 
             where: { status: true },
+            include: [
+                {
+                    model: Hole,
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contest'
+                        }
+                    ],
+                },
+            ]
         }
     );
 }
@@ -250,8 +298,9 @@ module.exports = {
     updateCourse,
     updateCourseHole,
     updateCourseHoleCount,
-    findAllActiveGolfCoursesForGame,
-    findAllActiveGolfCoursesForReg,
+    gameCourseSearch,
+    limitGameCourseSearch,
+    findAllActive,
     activeCoursesPageInit,
     inactiveCoursesPageInit,
     status,

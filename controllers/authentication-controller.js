@@ -9,21 +9,22 @@ const otpMailService = require('../api-services/mail-otp-service');
 const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
 const generateOTP = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
-const { encrypt } = require('../utils/crypto-helper');
+const { encrypt, decrypt } = require('../utils/crypto-helper');
 
 const clientLogin = async (req, res) => {
     const { email, pw } = req.body;
     try {
+        const decrypted_pw = decrypt(pw);
         // First thing First: validate email in request body
         routeEmailParamSchema.validateSync(email);
         // validate id in request paarameter
-        routePasswordParamSchema.validateSync(pw);
+        routePasswordParamSchema.validateSync(decrypted_pw);
         // find from db using email
         const found = await clientService.findByEmail(email);
         // if no match from db or found but account deactivated, return error
         if(!found || found.status === false) return res.status(400).json({'message': 'Invalid email or password'});
         // if match, then compare password
-        const match = await bcrypt.compare(pw, found.pw);
+        const match = await bcrypt.compare(decrypted_pw, found.pw);
         if(match) {
             //  set mode in found to be used in refresh token creation. 0 for Staff, 1 for Client
             found.mode = encrypt('1');
@@ -51,16 +52,17 @@ const clientLogin = async (req, res) => {
 const staffLogin = async (req, res) => {
     const { email, pw } = req.body;
     try {
+        const decrypted_pw = decrypt(pw);
         // First thing First: validate email in request body
         routeEmailParamSchema.validateSync(email);
         // validate id in request paarameter
-        routePasswordParamSchema.validateSync(pw);
+        routePasswordParamSchema.validateSync(decrypted_pw);
         // find from db using email
         const found = await staffService.findByEmail(email);
         // if no match from db or found but account deactivated, return error
         if(!found || found.status === false) return res.status(400).json({'message': 'Invalid email or password'});
         // if match, then compare password
-        const match = await bcrypt.compare(pw, found.pw);
+        const match = await bcrypt.compare(decrypted_pw, found.pw);
         if(match) {
             //  set mode in found to be used in refresh token creation. 0 for Staff, 1 for Client
             found.mode = encrypt('0');
