@@ -53,7 +53,7 @@ const update = async (req, res) => {
 // for adding contests to holes (spicing up games)
 const updateHoles = async (req, res) => {
     try {
-        await contestService.updateHoles(req.body.contests);
+        await contestService.updateHoles(req.body);
         res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});

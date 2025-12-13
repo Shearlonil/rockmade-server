@@ -7,7 +7,7 @@ const Staff = db.staff;
 const Hole = db.holes;
 const Contest = db.contests;
 const CourseHole = db.courseHoles;
-const HoleContest = db.tblJoinHolesContests;
+const HoleContest = db.holesContests;
 
 const findById = async (id) => {
     return await Course.findByPk(id,
@@ -19,7 +19,7 @@ const findById = async (id) => {
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest',
+                            as: 'contests',
                             through: {
                                 where: {
                                     course_id: id,
@@ -210,11 +210,6 @@ const gameCourseSearch = async (str) => {
                         { 
                             model: Contest,
                             as: 'contest',
-                            through: {
-                                where: {
-                                    course_id: id,
-                                }
-                            },
                         }
                     ],
                 },
@@ -244,12 +239,7 @@ const limitGameCourseSearch = async (pageSize) => {
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest',
-                            through: {
-                                where: {
-                                    course_id: id,
-                                }
-                            },
+                            as: 'contests',
                         }
                     ],
                     duplicating: false,
@@ -271,12 +261,7 @@ const findAllActive = async () => {
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest',
-                            through: {
-                                where: {
-                                    course_id: id,
-                                }
-                            },
+                            as: 'contests',
                         }
                     ],
                 },

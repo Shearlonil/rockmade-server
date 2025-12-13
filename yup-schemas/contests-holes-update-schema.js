@@ -6,6 +6,7 @@ const holeSchema = yup.object().shape({
 });
 
 const schema = yup.object().shape({
+    course_id: yup.number().required("Course is required"),
     contests: yup.array().of(holeSchema).min(1, "Update at least 1 contest").required("Contests to update are required"),
 });
 
