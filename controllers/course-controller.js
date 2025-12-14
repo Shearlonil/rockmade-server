@@ -112,9 +112,19 @@ const limitGameCourseSearch = async (req, res) => {
 };
 
 // finding golf courses for player registration..... Hence, no need for token verification for this end-point
-const findAllActiveGolfCoursesForReg = async (req, res) => {
+const onboardingCoursesInit = async (req, res) => {
     try {
-        res.status(200).json(await courseService.findAllActive());
+        res.status(200).json(await courseService.onboardingCoursesInit());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+// finding golf courses for player registration..... Hence, no need for token verification for this end-point
+const onboardingCourseSearch = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        res.status(200).json( await courseService.onboardingCourseSearch(req.query) );
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -167,7 +177,8 @@ router.route('/status').put( verifyAccessToken, preAuthorize(authorities.deleteA
 router.route('/active/all').get( verifyAccessToken, findAllActive );
 router.route('/games/init/:pageSize').get( verifyAccessToken, limitGameCourseSearch );
 router.route('/games/search').get( verifyAccessToken, gameCourseSearch );
-router.route('/onboarding/active/all').get( findAllActiveGolfCoursesForReg );
+router.route('/onboarding/active').get( onboardingCoursesInit );
+router.route('/onboarding/query').get( onboardingCourseSearch );
 router.route('/active/init/:pageSize').get( verifyAccessToken, activeCoursesPageInit );
 router.route('/inactive/init/:pageSize').get( verifyAccessToken, inactiveCoursesPageInit );
 router.route('/search/:id').get( verifyAccessToken, findById );

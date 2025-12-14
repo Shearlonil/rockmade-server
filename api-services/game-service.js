@@ -11,27 +11,38 @@ const GameHoleContest = db.gameHoleContests;
 const UserGameGroup = db.userGameGroup;
 
 const findOngoingRoundById = async id => {
-    return await Game.findByPk(id, {
+    const game = await Game.findByPk(id, {
         include: [
             {
                 model: GameHoleContest,
             },
             {
                 model: Course,
-                include: [
-                    {
-                        model: Hole,
-                        include: [
-                            { 
-                                model: Contest,
-                                as: 'contest'
-                            }
-                        ],
-                    },
-                ]
             }
         ]
     });
+    const course = await Course.findByPk(game.course_id,
+        { 
+            include: [
+                {
+                    model: Hole,
+                    as: 'holes',
+                    include: [
+                        { 
+                            model: Contest,
+                            as: 'contests',
+                            through: {
+                                where: {
+                                    course_id: game.course_id,
+                                }
+                            },
+                        }
+                    ],
+                },
+            ]
+        }
+    );
+    return {game, course};
 };
 
 const rawFindOngoingRoundById = async id => {
@@ -57,10 +68,11 @@ const createGame = async (creator_id, game) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contests'
                         }
                     ],
                 },
@@ -76,8 +88,8 @@ const createGame = async (creator_id, game) => {
                 for (const c of contests) {
                     const dbContest = await Contest.findByPk(c.id);
                     for(const hole_no of c.holes){
-                        const hole = course.Holes.find(h => h.hole_no === hole_no);
-                        const contest = hole.contest.find(hc => hc.id === dbContest.id);
+                        const hole = course.holes.find(h => h.hole_no === hole_no);
+                        const contest = hole.contests.find(hc => hc.id === dbContest.id);
                         await GameHoleContest.create(
                             {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id},
                             { transaction: t }
@@ -117,10 +129,16 @@ const updateGame = async (creator_id, game) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contests',
+                            through: {
+                                where: {
+                                    course_id,
+                                }
+                            },
                         }
                     ],
                 },
@@ -145,10 +163,16 @@ const updateGame = async (creator_id, game) => {
                             include: [
                                 {
                                     model: Hole,
+                                    as: 'holes',
                                     include: [
                                         { 
                                             model: Contest,
-                                            as: 'contest'
+                                            as: 'contests',
+                                            through: {
+                                                where: {
+                                                    course_id,
+                                                }
+                                            },
                                         }
                                     ],
                                 },
@@ -201,10 +225,16 @@ const updateGameContests = async (creator_id, game) => {
             include: [
                 {
                     model: Hole,
+                    as: 'holes',
                     include: [
                         { 
                             model: Contest,
-                            as: 'contest'
+                            as: 'contests',
+                            through: {
+                                where: {
+                                    course_id,
+                                }
+                            },
                         }
                     ],
                 },
@@ -227,8 +257,8 @@ const updateGameContests = async (creator_id, game) => {
                 for (const c of contests) {
                     const dbContest = await Contest.findByPk(c.id);
                     for(const hole_no of c.holes){
-                        const hole = course.Holes.find(h => h.hole_no === hole_no);
-                        const contest = hole.contest.find(hc => hc.id === dbContest.id);
+                        const hole = course.holes.find(h => h.hole_no === hole_no);
+                        const contest = hole.contests.find(hc => hc.id === dbContest.id);
                         await GameHoleContest.create(
                             {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id},
                             { transaction: t }

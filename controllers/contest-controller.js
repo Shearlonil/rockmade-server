@@ -64,6 +64,7 @@ const removeHole = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.body.contest_id);
         routePositiveNumberMiscParamSchema.validateSync(req.body.hole_id);
+        routePositiveNumberMiscParamSchema.validateSync(req.body.course_id);
         await contestService.removeHole(req.body);
         res.sendStatus(200);
     } catch (error) {

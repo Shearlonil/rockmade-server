@@ -29,7 +29,11 @@ const paginateFetch = async (prop) => {
 
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
-        c.creator_id = s.id WHERE c.status = ${status} LIMIT ${size} OFFSET ${offset}`
+        c.creator_id = s.id WHERE c.status = :s LIMIT :size OFFSET :offset`, {
+            replacements: { 
+                size, s, offset
+            },
+        }
     );
     const count = await Contest.count({where: {status: s}});
     return {count, results};
@@ -37,11 +41,13 @@ const paginateFetch = async (prop) => {
 
 const search = async (prop) => {
     const { str, status } = prop;
+    const s = JSON.parse(status)
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
-        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = ${status}`, {
+        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = :s`, {
             replacements: { 
-                searchPattern: `%${str}%` 
+                searchPattern: `%${str}%`,
+                s,
             },
         }
     );
@@ -87,12 +93,12 @@ const updateHoles = async ({contests, course_id}) => {
     }
 }
 
-const removeHole = async ({contest_id, hole_id}) => {
+const removeHole = async ({contest_id, hole_id, course_id}) => {
     try {
         await db.sequelize.query(
-            'DELETE FROM jt_holes_contests WHERE contest_id = :contest_id and hole_id = :hole_id',
+            'DELETE FROM jt_holes_contests WHERE contest_id = :contest_id and hole_id = :hole_id and course_id = :course_id',
             {
-                replacements: { contest_id, hole_id },
+                replacements: { contest_id, hole_id, course_id },
                 type: QueryTypes.DELETE,
             }
         );
@@ -128,9 +134,14 @@ const findAllActive = async () => {
 /*  method to initialize Contests page with 100 active contests to use as defaultOptions for AsyncSelect
     and also count total active contests for pagination component */
 const activeContestsPageInit = async (pageSize) => {
+    let size = pageSize * 1;    // convert to number
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM contests c inner join staff s on 
-        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT ${pageSize}`
+        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT :size`, {
+            replacements: { 
+                size
+            },
+        }
     );
     const count = await Contest.count({where: {status: true}});
     return {count, results};

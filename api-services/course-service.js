@@ -39,11 +39,15 @@ const paginateFetch = async (prop) => {
 
     let size = pageSize * 1;    // convert to number
     const offset = (page - 1) * size;
-    const s = JSON.parse(status)
+    const s = JSON.parse(status);
 
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
-        c.creator_id = s.id WHERE c.status = ${status} LIMIT ${size} OFFSET ${offset}`
+        c.creator_id = s.id WHERE c.status = :s LIMIT :size OFFSET :offset`, {
+            replacements: { 
+                size, s, offset
+            },
+        }
     );
     const count = await Course.count({where: {status: s}});
     return {count, results};
@@ -51,11 +55,13 @@ const paginateFetch = async (prop) => {
 
 const search = async (prop) => {
     const { str, status } = prop;
+    const s = JSON.parse(status);
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
-        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = ${status}`, {
+        c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = :s`, {
             replacements: { 
-                searchPattern: `%${str}%` 
+                searchPattern: `%${str}%`,
+                s,
             },
         }
     );
@@ -121,7 +127,7 @@ const updateCourseHole = async (course) => {
     try {
         const { course_id, hole_id, hcp, par } = course;
         const [results, metadata] = await  db.sequelize.query(
-            `UPDATE holes SET hcp_idx = :hcp, par = :par WHERE id = :hole_id and course_id = :course_id`,
+            `UPDATE course_holes SET hcp_idx = :hcp, par = :par WHERE id = :hole_id and course_id = :course_id`,
         {
           replacements: { hcp, par, hole_id, course_id },
           type: QueryTypes.UPDATE, // Specify the query type
@@ -206,12 +212,6 @@ const gameCourseSearch = async (str) => {
                 {
                     model: Hole,
                     as: 'holes',
-                    include: [
-                        { 
-                            model: Contest,
-                            as: 'contest',
-                        }
-                    ],
                 },
             ]
         }
@@ -236,13 +236,6 @@ const limitGameCourseSearch = async (pageSize) => {
                 {
                     model: Hole,
                     as: 'holes',
-                    include: [
-                        { 
-                            model: Contest,
-                            as: 'contests',
-                        }
-                    ],
-                    duplicating: false,
                 },
             ],
             limit,
@@ -258,12 +251,6 @@ const findAllActive = async () => {
                 {
                     model: Hole,
                     as: 'holes',
-                    include: [
-                        { 
-                            model: Contest,
-                            as: 'contests',
-                        }
-                    ],
                 },
             ]
         }
@@ -273,9 +260,14 @@ const findAllActive = async () => {
 /*  method to initialize Course page with 100 active courses to use as defaultOptions for AsyncSelect
     and also count total active courses for pagination component */
 const activeCoursesPageInit = async (pageSize) => {
+    let size = pageSize * 1;    // convert to number
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
-        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT ${pageSize}`
+        c.creator_id = s.id WHERE c.status = ${'true'} LIMIT :size`, {
+            replacements: { 
+                size,
+            },
+        }
     );
     const count = await Course.count({where: {status: true}});
     return {count, results};
@@ -284,9 +276,14 @@ const activeCoursesPageInit = async (pageSize) => {
 /*  method to initialize Course page with 100 inactive courses to use as defaultOptions for AsyncSelect
     and also count total inactive courses for pagination component */
 const inactiveCoursesPageInit = async (pageSize) => {
+    let size = pageSize * 1;    // convert to number
     const [results, metadata] = await db.sequelize.query(
         `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
-        c.creator_id = s.id WHERE c.status = ${'false'} LIMIT ${pageSize}`
+        c.creator_id = s.id WHERE c.status = ${'false'} LIMIT :size`, {
+            replacements: { 
+                size,
+            },
+        }
     );
     const count = await Course.count({where: {status: false}});
     return {count, results};
@@ -310,6 +307,27 @@ const status = async (contest) => {
     }
 }
 
+/*  method to initialize Courses in plaer reg page with 20 active courses to use as defaultOptions for AsyncSelect
+    and also count total active courses for pagination component */
+const onboardingCoursesInit = async () => {
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location FROM courses c WHERE c.status = ${'true'} LIMIT 20`
+    );
+    return results;
+}
+
+const onboardingCourseSearch = async (prop) => {
+    const { str } = prop;
+    const [results, metadata] = await db.sequelize.query(
+        `SELECT c.id, c.name, c.no_of_holes, c.location FROM courses c WHERE c.name LIKE :searchPattern and c.status = ${'true'}`, {
+            replacements: { 
+                searchPattern: `%${str}%`,
+            },
+        }
+    );
+    return results;
+}
+
 module.exports = {
     findById,
     search,
@@ -324,4 +342,6 @@ module.exports = {
     activeCoursesPageInit,
     inactiveCoursesPageInit,
     status,
+    onboardingCoursesInit,
+    onboardingCourseSearch,
 };

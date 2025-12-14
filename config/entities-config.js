@@ -14,7 +14,7 @@ db.games = require('../entities/games')(sequelize, Sequelize);
 db.holes = require('../entities/holes')(sequelize, Sequelize);
 db.courseHoles = require('../entities/course-holes')(sequelize, Sequelize);
 db.contests = require('../entities/contests')(sequelize, Sequelize);
-db.holesContests = require('../entities/holes-contests')(sequelize, Sequelize, db.holes, db.contests, db.courses);
+db.courseHolesContests = require('../entities/course-holes-contests')(sequelize, Sequelize, db.holes, db.contests, db.courses);
 db.userGameGroup = require('../entities/user-game-group')(sequelize, Sequelize);
 db.gameHoleRecords = require('../entities/game-hole-records')(sequelize, Sequelize);
 db.userHoleContestScores = require('../entities/user-hole-contest-scores')(sequelize, Sequelize);
@@ -242,10 +242,10 @@ db.games.belongsToMany(db.users, {
 db.holes.belongsToMany(db.contests, {
     as: 'contests',
     through: {
-        model: db.holesContests,
+        model: db.courseHolesContests,
         /*  Disable the default unique constraint which creates constraints using contest_id and hole_id. This isn't
             the desired constraints. Constraints here should be on contest_id, hole_id and course_is all
-            defined in the junction table jt_holes_contests declared by holesContests
+            defined in the junction table jt_holes_contests declared by courseHolesContests
         */
         unique: false,
     },
@@ -256,10 +256,10 @@ db.holes.belongsToMany(db.contests, {
 db.contests.belongsToMany(db.holes, {
     as: 'holes',
     through: {
-        model: db.holesContests,
+        model: db.courseHolesContests,
         /*  Disable the default unique constraint which creates constraints using contest_id and hole_id. This isn't
             the desired constraints. Constraints here should be on contest_id, hole_id and course_is all
-            defined in the junction table jt_holes_contests declared by holesContests
+            defined in the junction table jt_holes_contests declared by courseHolesContests
         */
         unique: false,
     },
@@ -280,9 +280,9 @@ db.courseHoles.belongsTo(db.courses, { as: 'Course', foreignKey: 'course_id' });
 db.courseHoles.belongsTo(db.holes, { as: 'Hole', foreignKey: 'hole_id' });
 
 // For Holes -> HoleContests -> Contests
-db.holes.hasMany(db.holesContests, { as: 'HoleContests', foreignKey: 'hole_id' });
-db.holesContests.belongsTo(db.holes, { as: 'Hole', foreignKey: 'hole_id' });
-db.holesContests.belongsTo(db.contests, { as: 'Contest', foreignKey: 'contest_id' });
+db.holes.hasMany(db.courseHolesContests, { as: 'HoleContests', foreignKey: 'hole_id' });
+db.courseHolesContests.belongsTo(db.holes, { as: 'Hole', foreignKey: 'hole_id' });
+db.courseHolesContests.belongsTo(db.contests, { as: 'Contest', foreignKey: 'contest_id' });
 
 // ManyToMany relationship between staff and authorities
 db.staff.belongsToMany(db.staffAuths, { 

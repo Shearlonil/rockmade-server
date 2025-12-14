@@ -1,7 +1,7 @@
 /*  Model to represent Join table for holes and contests.  */
 module.exports = (sequelize, Sequelize, hole, contest, courses) => {
   
-    const HolesContests = sequelize.define('HolesContests', {
+    const CourseHolesContests = sequelize.define('CourseHolesContests', {
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
@@ -55,5 +55,5 @@ module.exports = (sequelize, Sequelize, hole, contest, courses) => {
             },
         ],
     });  
-    return HolesContests;
+    return CourseHolesContests;
 };
