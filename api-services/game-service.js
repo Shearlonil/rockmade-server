@@ -16,9 +16,6 @@ const findOngoingRoundById = async id => {
             {
                 model: GameHoleContest,
             },
-            {
-                model: Course,
-            }
         ]
     });
     const course = await Course.findByPk(game.course_id,
@@ -97,7 +94,7 @@ const createGame = async (creator_id, game) => {
                     }
                 }
                 await UserGameGroup.create({
-                    name: "A",
+                    name: "1",
                     round_no: 1,
                     start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
                     user_id: creator_id,
@@ -121,6 +118,7 @@ const updateGame = async (creator_id, game) => {
         game   */
     try {
         const { game_id, name, course_id, hole_mode, startDate } = game;
+        // new course
         const course = await Course.findOne({
             where: { 
                 status: true,
@@ -145,7 +143,7 @@ const updateGame = async (creator_id, game) => {
             ]
         });
         if(course){
-            return await db.sequelize.transaction( async (t) => {
+            await db.sequelize.transaction( async (t) => {
                 const game = await Game.findOne({
                     where: { 
                         id: game_id,
@@ -158,52 +156,73 @@ const updateGame = async (creator_id, game) => {
                         {
                             model: GameHoleContest,
                         },
-                        {
-                            model: Course,
-                            include: [
-                                {
-                                    model: Hole,
-                                    as: 'holes',
-                                    include: [
-                                        { 
-                                            model: Contest,
-                                            as: 'contests',
-                                            through: {
-                                                where: {
-                                                    course_id,
-                                                }
-                                            },
-                                        }
-                                    ],
-                                },
-                            ]
-                        }
                     ]
                 });
                 if(game){
-                            for (const element of game.GameHoleContests) {
-                                console.log(element.dataValues);
-                            }
                     // if same hole mode
                     if(game.hole_mode == hole_mode){
                         // if not same course, migrate contests in previous course to new course of same hole (if supported by hole. If not, then delete contest)
                         if(game.course_id != course_id){
+                            for (const element of game.GameHoleContests) {
+                                const hole = course.holes.find(h => h.dataValues.id === element.dataValues.hole_id);
+                                if(hole){
+                                    // check if hole supports contest
+                                    const contest = hole.contests.find(c => c.id === element.dataValues.contest_id);
+                                    if (!contest) {
+                                        // delete contest for new hole
+                                        await db.sequelize.query(
+                                            'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id and ghc.contest_id = :contest_id and ghc.hole_id = :hole_id',
+                                            {
+                                                replacements: { 
+                                                    game_id, 
+                                                    contest_id: element.dataValues.contest_id,
+                                                    hole_id: hole.id
+                                                },
+                                                type: QueryTypes.DELETE,
+                                                transaction: t,
+                                            }
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }else {
-                        // delete all attached contests regardless of course (new course or update retaining old course)
+                        // delete all attached contests regardless of course (new course or update - retaining old course)
+                        await db.sequelize.query(
+                            'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id',
+                            {
+                                replacements: { game_id, },
+                                type: QueryTypes.DELETE,
+                                transaction: t,
+                            }
+                        );
                     }
                     const date = format(startDate, "yyyy-MM-dd");
                     game.name = name;
                     game.course_id = course_id;
                     game.hole_mode = hole_mode;
                     game.date = date;
-                    await game.save();
-                    throw new Error('Testing Testing');
+                    await game.save({ transaction: t });
                 }else {
                     throw new Error('Invalid Game specified');
                 }
-                return game;
             });
+            // due to changes may have been made to game model, refetch
+            const g = await Game.findOne({
+                where: { 
+                    id: game_id,
+                    creator_id,
+                    status: {
+                        [Op.between] : [1, 2]
+                    }
+                },
+                include: [
+                    {
+                        model: GameHoleContest,
+                    },
+                ]
+            });
+            return { g, course };
         }else {
             throw new Error("Invalid Golf Course specified");
         }
