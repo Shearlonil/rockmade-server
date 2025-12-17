@@ -54,6 +54,22 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
+        group_size: {
+            /*  min     => 2
+                max     => 5
+                default => 4
+            */
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
+        current_round: {
+            /*  current round of game
+            */
+            type: Sequelize.INTEGER,
+            allowNull:false,
+            notEmpty: true
+        },
     }, {
         tableName: 'games',
         timestamps: true,

@@ -9,12 +9,18 @@ const Hole = db.holes;
 const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
 const UserGameGroup = db.userGameGroup;
+const User = db.users;
 
 const findOngoingRoundById = async id => {
     const game = await Game.findByPk(id, {
         include: [
             {
                 model: GameHoleContest,
+            },
+            {
+                model: User,
+                attributes: ['fname', 'lname', 'hcp'],
+                as: 'users',
             },
         ]
     });
@@ -79,7 +85,7 @@ const createGame = async (creator_id, game) => {
             const date = format(startDate, "yyyy-MM-dd");
             return await db.sequelize.transaction( async (t) => {
                 const game = await Game.create( 
-                    { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id }, 
+                    { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4 }, 
                     { transaction: t }
                 );
                 for (const c of contests) {
@@ -96,7 +102,7 @@ const createGame = async (creator_id, game) => {
                 await UserGameGroup.create({
                     name: "1",
                     round_no: 1,
-                    start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
+                    start_time: format(startDate, "yyyy-MM-dd HH:mm:ss"),
                     user_id: creator_id,
                     game_id: game.id
                 }, 

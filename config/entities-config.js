@@ -196,6 +196,7 @@ db.contests.belongsTo(db.staff, {
 
 // OneToMany relationship between users and games (creator of a game)
 db.users.hasMany(db.games, {
+    as: 'creator',
     foreignKey: {
         // also set the foreign key name here to avoid sequelize adding column CourseId
         name: 'creator_id',
@@ -211,7 +212,7 @@ db.games.belongsTo(db.users, {
 
 // ManyToMany relationship between users and games (using groups as user must be in a group to play a game)
 db.users.belongsToMany(db.games, {
-    as: 'game',
+    as: 'games',
     through: {
         model: db.userGameGroup,
         /*  Disable the default unique constraint which creates constraints using userId and gameId. This isn't
@@ -225,7 +226,7 @@ db.users.belongsToMany(db.games, {
     onDelete: 'CASCADE',
 });
 db.games.belongsToMany(db.users, {
-    as: 'user',
+    as: 'users',
     through: {
         model: db.userGameGroup,
         /*  Disable the default unique constraint which creates constraints using userId and gameId. This isn't
