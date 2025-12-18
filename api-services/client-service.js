@@ -251,6 +251,67 @@ const dashboardInfo = async (id) => {
     return results[0];
 }
 
+const search = async (prop) => {
+    const { str, status } = prop;
+    const s = JSON.parse(status);
+    return await User.findAll({
+        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp' ],
+        where: { 
+            status: s,
+            [Op.or]: {
+                fname: {
+                    [Op.like]: `%${str}%`
+                },
+                lname: {
+                    [Op.like]: `%${str}%`
+                }
+            },
+        },
+        include: [
+            {
+                model: BlurHash,
+            },
+            {
+                model: Course,
+                attributes: ['id', 'name' ],
+                where: { status : true },
+            },
+        ]
+    });
+}
+
+const gameSearch = async (prop) => {
+    const { str } = prop;
+    const sub = format(new Date(), "yyyy-MM-dd");
+    return await User.findAll({
+        attributes: ['id', 'fname', 'lname', 'hcp' ],
+        where: { 
+            status: true,
+            sub_expiration: {
+                [Op.gte]: sub
+            },
+            [Op.or]: {
+                fname: {
+                    [Op.like]: `%${str}%`
+                },
+                lname: {
+                    [Op.like]: `%${str}%`
+                }
+            },
+        },
+        include: [
+            {
+                model: BlurHash,
+            },
+            {
+                model: Course,
+                attributes: ['id', 'name' ],
+                where: { status : true },
+            },
+        ]
+    });
+}
+
 const listClients = async ( {name, idOffset, limit, acc_type}, pageSpan ) => {
     const where = {
         [Op.or]: [
@@ -292,15 +353,6 @@ const changeClientStatus = async ({id, status}) => {
     return await client.save();
 }
 
-const removeMyIndustry = async (client_id, industry_id) => {
-    const client = await findById(client_id);
-    const industry = await JobIndustry.findByPk(industry_id);
-    if (!industry) {
-        throw new Error('Industry not found');
-    }
-    await client.removeJobIndustry(industry);
-}
-
 // PRIVATE METHODS START HERE
 
 module.exports = {
@@ -316,5 +368,6 @@ module.exports = {
     dashboardInfo,
     listClients,
     changeClientStatus,
-    removeMyIndustry,
+    search,
+    gameSearch,
 };

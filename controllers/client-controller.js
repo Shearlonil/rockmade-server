@@ -14,7 +14,7 @@ const schema = require('../yup-schemas/user-schema');
 const updateSchema = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routePasswordParamSchema, routeStringMiscParamSchema } = require('../yup-schemas/request-params');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routePasswordParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
 
 const findById = async (req, res) => {
     try {
@@ -147,7 +147,7 @@ const dpUpload = async (req, res) => {
     }
 };
 
-const downnloadProfileImg = async (req, res) => {
+const downloadProfileImg = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
         const file = path.join(__dirname, "..", "dp-upload", `${req.params.id}.webp`)
@@ -226,6 +226,40 @@ const resetPassword = async (req, res) => {
     }
 }
 
+const search = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        routeBooleanParamSchema.validateSync(req.query.status);
+        res.status(200).json( await clientService.search(req.query) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const gameSearch = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.query.str);
+        res.status(200).json( await clientService.gameSearch(req.query) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const getImg = async (req, res) => {
+    try {
+        const id = req.params.id * 1;
+        routePositiveNumberMiscParamSchema.validateSync(req.params.filename);
+        const filePath = path.join(__dirname, "..", "dp-upload", `${req.params.filename}.webp`)
+        if (fs.existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            res.status(404).json({'message': "File Not Found"});
+        }
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 // PRIVATE METHODS
 '=================================='
 
@@ -242,10 +276,13 @@ router.route('/profile/update').put( verifyAccessToken, validate(updateSchema), 
 router.route('/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/pw/reset').put( resetPassword );
 router.route('/email/update').put( verifyAccessToken, updateEmail );
-router.route('/search').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
+router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
-router.route('/dp/:id').get( verifyAccessToken, downnloadProfileImg );
+// router.route('/dp/:id').get( verifyAccessToken, downloadProfileImg );
+router.route('/dp/:filename').get( getImg );
+router.route('/query').get( verifyAccessToken, search );
+router.route('/game/query').get( verifyAccessToken, gameSearch );
 
 module.exports = router;
