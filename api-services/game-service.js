@@ -20,7 +20,7 @@ const findOngoingRoundById = async id => {
             },
             {
                 model: User,
-                attributes: ['fname', 'lname', 'hcp'],
+                attributes: ['id', 'fname', 'lname', 'hcp'],
                 as: 'users',
                 include: {
                     model: BlurHash,
@@ -109,7 +109,7 @@ const createGame = async (creator_id, game) => {
                     start_time: format(startDate, "yyyy-MM-dd HH:mm:ss"),
                     user_id: creator_id,
                     game_id: game.id
-                }, 
+                },
                 { transaction: t })
                 return game;
             });
@@ -243,6 +243,63 @@ const updateGame = async (creator_id, game) => {
     }
 }
 
+const addPlayers = async (creator_id, prop) => {
+    const { game_id, currentGroupSize, players, groupProp } = prop;
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                creator_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            if(groupProp.isNew){
+                // be sure size of group isn't more than currentGroupSize
+                if (players.length > currentGroupSize) {
+                    throw new Error("Players exceed group size");
+                }
+            }else {
+                // add players to existing group. First count number of existing members in the group
+                const count = await UserGameGroup.count({
+                    where: {
+                        name: groupProp.group_name,
+                        game_id: game.id,
+                        round_no: groupProp.round_no,
+                    }
+                });
+                // be sure size of new players + count (existing player) isn't more than currentGroupSize
+                if ((players.length + count) > currentGroupSize) {
+                    throw new Error("Players exceed group size");
+                }
+            }
+            await db.sequelize.transaction( async (t) => {
+                for (const player of players) {
+                    await UserGameGroup.create({
+                        name: groupProp.group_name,
+                        round_no: groupProp.round_no,
+                        start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
+                        user_id: player,
+                        game_id: game.id
+                    },
+                    { transaction: t })
+                }
+                game.group_size = currentGroupSize;
+                await game.save({ transaction: t });
+            });
+        }else {
+            throw new Error('Invalid Game specified');
+        }
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+const removePlayer = async ({player_id, game_id, creator_id}) => {
+};
+
 const updateGameContests = async (creator_id, game) => {
     try {
         const { course_id, game_id, contests = [] } = game;
@@ -311,5 +368,7 @@ module.exports = {
     rawFindOngoingRoundById,
     createGame,
     updateGame,
+    addPlayers,
+    removePlayer,
     updateGameContests,
 };

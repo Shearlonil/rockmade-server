@@ -26,8 +26,8 @@ const schema = yup.object().shape({
 
 const updateSchema = yup.object().shape({
     game_id: yup
-        .number().integer().min(1, "Invalid Golf Course specified")
-        .required("Golf Course is required!"),
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
     name: yup.string().required("Name is required!"),
     course_id: yup
         .number().integer().min(1, "Invalid Golf Course specified")
@@ -42,12 +42,27 @@ const updateSchema = yup.object().shape({
 
 const contestsUpdateSchema = yup.object().shape({
     game_id: yup
-        .number().integer().min(1, "Invalid Golf Course specified")
-        .required("Golf Course is required!"),
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
     course_id: yup
         .number().integer().min(1, "Invalid Golf Course specified")
         .required("Golf Course is required!"),
     contests: yup.array().of(contestSchema),
 });
 
-module.exports = {schema, updateSchema, contestsUpdateSchema};
+const addPlayerSchema = yup.object().shape({
+    game_id: yup
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
+    currentGroupSize: yup
+        .number().integer().min(2, "Invalid group size specified").max(5, "Invalid group size specified")
+        .required("Group size is required!"),
+    players: yup.array().of(yup.number()).min(1, "At least 1 player is required").required("Players are required"),
+    groupProp: yup.object().shape({
+        round_no: yup.number().required("Group is required"),
+        group_name: yup.number().required("Group name is required"),
+        isNew: yup.boolean().required("Group status not indicated"),
+    })
+});
+
+module.exports = {schema, updateSchema, contestsUpdateSchema, addPlayerSchema};
