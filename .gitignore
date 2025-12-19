@@ -12,6 +12,8 @@ lerna-debug.log*
 package-lock.json
 # db credentials can't be made public in git repo
 sequelize-db-connect.js
+jwt.js
+cryto-helper.js
 
 node_modules
 dist
