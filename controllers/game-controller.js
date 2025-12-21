@@ -51,6 +51,20 @@ const updateGame = async (req, res) => {
     }
 };
 
+const delOngoingRound = async (req, res) => {
+    try {
+        const client = await findById(req.whom.id);
+        if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
+            throw new Error("Account doesn't support feature. Please subscribe");
+        }
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        await gameService.delOngoingRound(req.whom.id, req.params.id)
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const addPlayers = async (req, res) => {
     try {
         const client = await findById(req.whom.id);
@@ -93,6 +107,7 @@ router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validat
 router.route('/rounds/ongoing/:id/player/remove').put( verifyAccessToken, removePlayer );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
+router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );
 router.route('/contests/update').post( verifyAccessToken, validate(contestsUpdateSchema), updateGameContests );
 
 module.exports = router;

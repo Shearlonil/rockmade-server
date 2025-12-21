@@ -87,9 +87,9 @@ const createGame = async (creator_id, game) => {
         });
         if(course){
             const date = format(startDate, "yyyy-MM-dd");
-            return await db.sequelize.transaction( async (t) => {
+            const g =  await db.sequelize.transaction( async (t) => {
                 const game = await Game.create( 
-                    { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4 }, 
+                    { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
                     { transaction: t }
                 );
                 for (const c of contests) {
@@ -109,9 +109,23 @@ const createGame = async (creator_id, game) => {
                     start_time: format(startDate, "yyyy-MM-dd HH:mm:ss"),
                     user_id: creator_id,
                     game_id: game.id
-                },
-                { transaction: t })
+                }, { transaction: t });
                 return game;
+            });
+            return await Game.findByPk(g.id, {
+                include: [
+                    {
+                        model: GameHoleContest,
+                    },
+                    {
+                        model: User,
+                        attributes: ['id', 'fname', 'lname', 'hcp'],
+                        as: 'users',
+                        include: {
+                            model: BlurHash,
+                        }
+                    },
+                ]
             });
         }else {
             throw new Error("Invalid Golf Course specified");
@@ -214,7 +228,7 @@ const updateGame = async (creator_id, game) => {
                     game.date = date;
                     await game.save({ transaction: t });
                 }else {
-                    throw new Error('Invalid Game specified');
+                    throw new Error('Cannot update game. Invalid Operation!.');
                 }
             });
             // due to changes may have been made to game model, refetch
@@ -242,6 +256,53 @@ const updateGame = async (creator_id, game) => {
         throw new Error(error.message); // rethrow the error for front-end 
     }
 }
+
+
+
+const delOngoingRound = async (creator_id, game_id) => {
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                creator_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            await db.sequelize.transaction( async (t) => {
+                // delete all attached contests to game
+                await db.sequelize.query(
+                    'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id',
+                    {
+                        replacements: { game_id, },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // delete all associated groups
+                await db.sequelize.query(
+                    'DELETE ugg FROM user_game_group as ugg WHERE ugg.game_id = :game_id',
+                    {
+                        replacements: { game_id, },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                await Game.destroy( {
+                    where: {  id: game_id },
+                    force: true,
+                    transaction: t,
+                } );
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
 
 const addPlayers = async (creator_id, prop) => {
     const { game_id, currentGroupSize, players, groupProp } = prop;
@@ -290,7 +351,7 @@ const addPlayers = async (creator_id, prop) => {
                 await game.save({ transaction: t });
             });
         }else {
-            throw new Error('Invalid Game specified');
+            throw new Error('Invalid Operation!.');
         }
     } catch (error) {
         throw new Error(error.message);
@@ -352,7 +413,7 @@ const updateGameContests = async (creator_id, game) => {
                     }
                 }
             }else {
-                throw new Error('Invalid Game specified');
+                throw new Error('Invalid Operation. Please contact game creator');
             }
             return game;
         });
@@ -368,6 +429,7 @@ module.exports = {
     rawFindOngoingRoundById,
     createGame,
     updateGame,
+    delOngoingRound,
     addPlayers,
     removePlayer,
     updateGameContests,
