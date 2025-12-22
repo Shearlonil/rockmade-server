@@ -14,7 +14,8 @@ const schema = require('../yup-schemas/user-schema');
 const { personal_info_schema } = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routePasswordParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeZeroOrGtParamSchema, routePasswordParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { encrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
     try {
@@ -68,7 +69,7 @@ const register = async (req, res) => {
             // create account
             const client = await clientService.register(clientObj);
             // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-            client.mode = 1;
+            client.mode = encrypt('1');
             // create jwt access token
             const accessToken = createClientAccessToken(client);
             // create jwt refresh token
@@ -94,26 +95,60 @@ const updatePersonalInfo = async (req, res) => {
     try {
         const updatedClient = await clientService.updatePersonalInfo(req.whom.id, req.body);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-        updatedClient.mode = 1;
+        updatedClient.mode = encrypt('1');
         // create jwt access token
         const accessToken = createClientAccessToken(updatedClient);
         //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
         res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
         res.setHeader('authorization', 'Bearer ' + accessToken);
-        res.status(200).json(updatedClient);
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
 }
 
+const updateHomeClub = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.body.id);
+        const updatedClient = await clientService.updateHomeClub(req.whom.id, req.body.id);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        updatedClient.mode = encrypt('1');
+        // create jwt access token
+        const accessToken = createClientAccessToken(updatedClient);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+const updateHCP = async (req, res) => {
+    try {
+        // First thing First: validate hcp in request body
+        routeZeroOrGtParamSchema.validateSync(req.body.hcp);
+        const updatedClient = await clientService.updateHCP(req.whom.id, req.body.hcp);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        updatedClient.mode = encrypt('1');
+        // create jwt access token
+        const accessToken = createClientAccessToken(updatedClient);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const updateEmail = async (req, res) => {
     try {
-        const email = req.body.email;
         // First thing First: validate email in request body
-        routeEmailParamSchema.validateSync(email);
-        const client = clientService.updateEmail(req.whom.id, email);
+        routeEmailParamSchema.validateSync(req.body.email);
+        const client = await clientService.updateEmail(req.whom.id, req.body.email);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-        client.mode = 1;
+        client.mode = encrypt('1');
         // create jwt refresh token
         const refreshToken = createRefreshToken(client);
         res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
@@ -273,9 +308,11 @@ const cleanUpFileUpload = async (file) => {
 
 router.route('/onboarding').post(multerImgUpload, validate(schema), register );
 router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
+router.route('/profile/hc/update').put( verifyAccessToken, updateHomeClub );
+router.route('/profile/hcp/update').put( verifyAccessToken, updateHCP );
 router.route('/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/pw/reset').put( resetPassword );
-router.route('/email/update').put( verifyAccessToken, updateEmail );
+router.route('/profile/email/update').put( verifyAccessToken, updateEmail );
 router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );

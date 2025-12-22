@@ -90,7 +90,6 @@ const updateStaffRoles = async (req, res) => {
             // account cannot edit itself
             return res.sendStatus(404);
         }
-        console.log(req.whom.roles, req.body.authorities);
         /*  updater cannot add authorities they don't have
             Algorithm returns false if a role which the current user doesn't have is found in the list of roles to be added to edited/updated account   
             returns undefined for empty list or truth case (supplied role list contains roles present in the current user making changes or updating account    */

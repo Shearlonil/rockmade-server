@@ -187,6 +187,51 @@ const updatePersonalInfo = async (id, profile) => {
     }
 };
 
+const updateHomeClub = async (id, course_id) => {
+    try {
+        // find client to use in sequelize transaction and setter for industries (ManyToMany) below
+        const client = await User.findByPk(id);
+        const course = await Course.findOne({
+            where: { 
+                status: true,
+                id: course_id,
+            },
+            attributes: [ 'id' ],
+        });
+        if(course){
+            await client.update({ course_id }, {
+                where: { id },
+                returning: true,
+            });
+        }else {
+            throw new Error("Invalid Golf Course specified");
+        }
+        // fetch updated client and return
+        return await findById(id);
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const updateHCP = async (id, hcp) => {
+    try {
+        // find client to use in sequelize transaction and setter for industries (ManyToMany) below
+        const client = await User.findByPk(id);
+        await client.update({ hcp }, {
+            where: { id },
+            returning: true,
+        });
+        // fetch updated client and return
+        return await findById(id);
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 const changePassword = async (id, profile) => {
     const { newPass } = profile;
     // encrypt password
@@ -350,6 +395,8 @@ module.exports = {
     findByEmail,
     register,
     updatePersonalInfo,
+    updateHomeClub,
+    updateHCP,
     findForPassWord,
     updateEmail,
     updatePassword,
