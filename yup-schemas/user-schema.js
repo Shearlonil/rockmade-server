@@ -16,8 +16,8 @@ const schema = yup.object().shape({
         .required("Gender is required!"),
     pw: yup
         .string()
-        .min(6)
-        .required("Password must be a min of 6 characters!"),
+        .min(6, "Password must be a min of 6 characters!")
+        .required("Password is required"),
     country_id: yup.number().required("Country is required!"),
     hcp: yup.number().required('HCP is required'),
     hc_id: yup.number().required('Home Club is required'),

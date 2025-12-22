@@ -11,7 +11,7 @@ const { verifyAccessToken, verifyOTPtoken, createClientAccessToken, createRefres
 const validate = require('../middleware/schemer-validator');
 const multerImgUpload = require('../utils/multer-img-upload');
 const schema = require('../yup-schemas/user-schema');
-const updateSchema = require('../yup-schemas/user-update-schema');
+const { personal_info_schema } = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
 const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routePasswordParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
@@ -90,10 +90,11 @@ const register = async (req, res) => {
     }
 };
 
-const update = async (req, res) => {
+const updatePersonalInfo = async (req, res) => {
     try {
-        const clientObj = req.body;
-        const updatedClient = await clientService.update(req.whom.id, clientObj);
+        const updatedClient = await clientService.updatePersonalInfo(req.whom.id, req.body);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        updatedClient.mode = 1;
         // create jwt access token
         const accessToken = createClientAccessToken(updatedClient);
         //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
@@ -101,7 +102,6 @@ const update = async (req, res) => {
         res.setHeader('authorization', 'Bearer ' + accessToken);
         res.status(200).json(updatedClient);
     } catch (error) {
-        cleanUpFileUpload(req.file);
         return res.status(400).json({'message': error.message});
     }
 }
@@ -272,7 +272,7 @@ const cleanUpFileUpload = async (file) => {
 };
 
 router.route('/onboarding').post(multerImgUpload, validate(schema), register );
-router.route('/profile/update').put( verifyAccessToken, validate(updateSchema), update );
+router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
 router.route('/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/pw/reset').put( resetPassword );
 router.route('/email/update').put( verifyAccessToken, updateEmail );

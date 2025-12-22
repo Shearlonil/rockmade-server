@@ -163,26 +163,16 @@ const register = async client => {
     }
 };
 
-const update = async (id, profile) => {
-    const { fname, lname, dob, gender, hcp, hc_id, country_id } = profile;
+const updatePersonalInfo = async (id, profile) => {
+    const { fname, lname, dob, gender } = profile;
     const f_name = fname.trim();
     const l_name = lname.trim();
-
-    const course =  await Course.findByPk(hc_id);
-    const country = await Country.findByPk(country_id);
-    
-    if(course === null) {
-        throw new Error("Invalid Golf Course specified as Home Club");
-    }
-    
-    if(country === null) {
-        throw new Error("Invalid Country specified");
-    }
+    const birthDay = format(dob, "yyyy-MM-dd");
     // find client to use in sequelize transaction and setter for industries (ManyToMany) below
     const client = await User.findByPk(id);
     try {
         await db.sequelize.transaction( async (t) => {
-            await client.update({ fname: f_name, lname: l_name, dob, gender, hcp, course_id: hc_id, country_id }, {
+            await client.update({ fname: f_name, lname: l_name, dob: birthDay, gender }, {
                 where: { id },
                 returning: true,
                 transaction: t
@@ -359,7 +349,7 @@ module.exports = {
     findById,
     findByEmail,
     register,
-    update,
+    updatePersonalInfo,
     findForPassWord,
     updateEmail,
     updatePassword,
