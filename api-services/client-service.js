@@ -7,14 +7,30 @@ const fsPromises = require('fs').promises;
 const { subDays, format } = require('date-fns');
 
 const generateOTP = require('../utils/otp-generator');
-const {compress, encodeImageToBlurhash} = require('../utils/img-compression-agent');
-const { decrypt } = require('../utils/crypto-helper');
+const { compress } = require('../utils/img-compression-agent');
+const { decrypt, encrypt } = require('../utils/crypto-helper');
 
 const User = db.users;
 const Course = db.courses;
 const Country = db.countries;
 const MailOTP = db.mailOTP;
-const BlurHash = db.blurHash;
+const ImgKeyHash = db.imgKeyHash;
+
+const findActiveById = async id => {
+    return await User.findByPk(id, {
+        where: {status: true},
+        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+        include: [
+            {
+                model: Course,
+                where: { status : true },
+            },
+            {
+                model: ImgKeyHash,
+            }
+        ]
+    });
+};
 
 const findById = async id => {
     return await User.findByPk(id, {
@@ -25,7 +41,7 @@ const findById = async id => {
                 where: { status : true },
             },
             {
-                model: BlurHash,
+                model: ImgKeyHash,
             }
         ]
     });
@@ -39,21 +55,16 @@ const findByEmail = async email => {
                 model: Course,
             },
             {
-                model: BlurHash,
+                model: ImgKeyHash,
             }
         ]
     });
 };
 
-// only useful for updating password
-const findForPassWord = async id => {
-    return await User.findByPk(id);
-};
-
 const updateEmail = async (id, email) => {
     const mail = email.trim();
     // find client from db using id in request parameter
-    const client = await User.findByPk(id);
+    const client = await User.findOne({ where: {status: true, id} });
     if(!client) {
         throw new Error("Account Not Found");
     }
@@ -66,7 +77,18 @@ const updateEmail = async (id, email) => {
             });
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email } }, { transaction: t });
-            return await findById(id);
+        });
+        return await User.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
@@ -75,16 +97,31 @@ const updateEmail = async (id, email) => {
     }
 }
 
-const updatePassword = async (id, pw) => {
-    // encrypt password
-    const hashedPwd = await bcrypt.hash(pw, 12);
-    await User.update({ pw: hashedPwd }, {
-        where: { id },
+const updatePassword = async (id, data) => {
+    const { pw, current_pw } = data;
+    // find client from db using id in request parameter
+    const client = await User.findOne({
+        where: { status: true, id },
     });
+    if(!client) {
+        throw new Error("Invalid operation");
+    }
+    // check if current password is correct
+    // if match, then compare password
+    const match = await bcrypt.compare(decrypt(current_pw), client.pw);
+    if(match) {
+        // encrypt password
+        const hashedPwd = await bcrypt.hash(decrypt(pw), 12);
+        await User.update({ pw: hashedPwd }, {
+            where: { id },
+        });
+    }else {
+        throw new Error("Invalid password");
+    }
 }
 
 const resetPassword = async (data) => {
-    const user = await User.findOne({ 
+    const client = await User.findOne({ 
         where: { email: data.email.trim() },
     });
 
@@ -145,12 +182,51 @@ const register = async client => {
                 client.id = c.id;
                 const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
                 await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", c.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
-                const encodedHash = await encodeImageToBlurhash(path.join(__dirname, "..", "dp-upload", c.id + '.webp'));
-                await BlurHash.create({blur_hash: encodedHash.hash, user_id: c.id}, { transaction: t });
+                await ImgKeyHash.create({key_hash: encrypt(dp.filename), user_id: c.id}, { transaction: t });
             }
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email } }, { transaction: t });
             return c;
+        });
+    } catch (error) {
+        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.id + '.webp' )) ){
+            // delete compressed image
+            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.id + '.webp'));
+        }
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const updateProfileImg = async (id, dp) => {
+    // find client to use in sequelize transaction and setter for industries (ManyToMany) below
+    const client = await User.findOne({ where: {status: true, id} });
+    if(!client) {
+        throw new Error("Account Not Found");
+    }
+    try {
+        const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
+        await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", client.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
+        const keyHash = await ImgKeyHash.findOne({ where: { user_id: id } })
+        if(keyHash){
+            keyHash.key_hash = encrypt(dp.filename);
+            await keyHash.save();
+        }else {
+            await ImgKeyHash.create({key_hash: encrypt(dp.filename), user_id: id});
+        }
+        // fetch updated client and return
+        return await User.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
         });
     } catch (error) {
         if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.id + '.webp' )) ){
@@ -169,7 +245,9 @@ const updatePersonalInfo = async (id, profile) => {
     const l_name = lname.trim();
     const birthDay = format(dob, "yyyy-MM-dd");
     // find client to use in sequelize transaction and setter for industries (ManyToMany) below
-    const client = await User.findByPk(id);
+    const client = await User.findOne({
+        where: { status: true, id },
+    });
     try {
         await db.sequelize.transaction( async (t) => {
             await client.update({ fname: f_name, lname: l_name, dob: birthDay, gender }, {
@@ -179,7 +257,18 @@ const updatePersonalInfo = async (id, profile) => {
             });
         });
         // fetch updated client and return
-        return await findById(id);
+        return await User.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
+        });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -207,7 +296,18 @@ const updateHomeClub = async (id, course_id) => {
             throw new Error("Invalid Golf Course specified");
         }
         // fetch updated client and return
-        return await findById(id);
+        return await User.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
+        });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -224,7 +324,18 @@ const updateHCP = async (id, hcp) => {
             returning: true,
         });
         // fetch updated client and return
-        return await findById(id);
+        return await User.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
+        });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -304,7 +415,7 @@ const search = async (prop) => {
         },
         include: [
             {
-                model: BlurHash,
+                model: ImgKeyHash,
             },
             {
                 model: Course,
@@ -336,7 +447,7 @@ const gameSearch = async (prop) => {
         },
         include: [
             {
-                model: BlurHash,
+                model: ImgKeyHash,
             },
             {
                 model: Course,
@@ -391,13 +502,14 @@ const changeClientStatus = async ({id, status}) => {
 // PRIVATE METHODS START HERE
 
 module.exports = {
+    findActiveById,
     findById,
     findByEmail,
     register,
+    updateProfileImg,
     updatePersonalInfo,
     updateHomeClub,
     updateHCP,
-    findForPassWord,
     updateEmail,
     updatePassword,
     resetPassword,

@@ -7,7 +7,7 @@ const mimetype = require('./mime-types.json');
     1024 * 1024 = 1 mb
     20 * 1024 * 1024 = 20MB
 */   
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;  // 512KB
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;  // 5MB
 // configure multer to save files to disk.
 const fileStorageEngine = multer.diskStorage({
   
@@ -49,7 +49,7 @@ const uploadSingleFile = multer({
         callback( null, true );
 
     }, 
-    // limits: { fileSize: MAX_UPLOAD_SIZE }
+    limits: { fileSize: MAX_UPLOAD_SIZE }
 
 }).single( "img" );
 

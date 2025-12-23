@@ -8,7 +8,7 @@ db.sequelize = sequelize;
 db.Op = Op;
 
 db.users = require('../entities/users')(sequelize, Sequelize);
-db.blurHash = require('../entities/client_blurhash')(sequelize, Sequelize);
+db.imgKeyHash = require('../entities/profile_key_hash')(sequelize, Sequelize);
 db.courses = require('../entities/courses')(sequelize, Sequelize);
 db.games = require('../entities/games')(sequelize, Sequelize);
 db.holes = require('../entities/holes')(sequelize, Sequelize);
@@ -58,15 +58,15 @@ db.users.belongsTo(db.countries, {
     }
 });
 
-// OneToOne relationship between client and their dp's (if any) blurhash
-db.users.hasOne(db.blurHash, {
+// OneToOne relationship between client and their dp's (if any) imgKeyhash
+db.users.hasOne(db.imgKeyHash, {
     onDelete: 'CASCADE',
     foreignKey: {
         name: 'user_id',
         allowNull: false
     }
 });
-db.blurHash.belongsTo(db.users, {
+db.imgKeyHash.belongsTo(db.users, {
     foreignKey: {
         // also set the foreign key name here to avoid sequelize adding column ClientId
         name: 'user_id',

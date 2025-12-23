@@ -10,7 +10,7 @@ const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
 const UserGameGroup = db.userGameGroup;
 const User = db.users;
-const BlurHash = db.blurHash;
+const ImgKeyHash = db.imgKeyHash;
 
 const findOngoingRoundById = async id => {
     const game = await Game.findByPk(id, {
@@ -23,7 +23,7 @@ const findOngoingRoundById = async id => {
                 attributes: ['id', 'fname', 'lname', 'hcp'],
                 as: 'users',
                 include: {
-                    model: BlurHash,
+                    model: ImgKeyHash,
                 }
             },
         ]
@@ -122,7 +122,7 @@ const createGame = async (creator_id, game) => {
                         attributes: ['id', 'fname', 'lname', 'hcp'],
                         as: 'users',
                         include: {
-                            model: BlurHash,
+                            model: ImgKeyHash,
                         }
                     },
                 ]

@@ -11,10 +11,10 @@ const { verifyAccessToken, verifyOTPtoken, createClientAccessToken, createRefres
 const validate = require('../middleware/schemer-validator');
 const multerImgUpload = require('../utils/multer-img-upload');
 const schema = require('../yup-schemas/user-schema');
-const { personal_info_schema } = require('../yup-schemas/user-update-schema');
+const { personal_info_schema, pw_schema, hcp_schema, email_schema } = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeZeroOrGtParamSchema, routePasswordParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
 const { encrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
@@ -36,7 +36,7 @@ const dashboardInfo = async (req, res) => {
 
 const myProfile = async (req, res) => {
     try {
-        res.status(200).json(await clientService.findById(req.whom.id));
+        res.status(200).json(await clientService.findActiveById(req.whom.id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -127,7 +127,6 @@ const updateHomeClub = async (req, res) => {
 const updateHCP = async (req, res) => {
     try {
         // First thing First: validate hcp in request body
-        routeZeroOrGtParamSchema.validateSync(req.body.hcp);
         const updatedClient = await clientService.updateHCP(req.whom.id, req.body.hcp);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
@@ -144,15 +143,29 @@ const updateHCP = async (req, res) => {
 
 const updateEmail = async (req, res) => {
     try {
-        // First thing First: validate email in request body
-        routeEmailParamSchema.validateSync(req.body.email);
-        const client = await clientService.updateEmail(req.whom.id, req.body.email);
-        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-        client.mode = encrypt('1');
-        // create jwt refresh token
-        const refreshToken = createRefreshToken(client);
-        res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
-        res.status(200).json({'message': 'Email update successful'});
+        const mail_otp = await otpMailService.findByEmail(req.body.email);
+        if(mail_otp){
+            const clientObj = req.body;
+            verifyOTPtoken(clientObj, mail_otp.otp);
+            // check if submitted otp is same as db otp
+            if(clientObj.decodedOTP !== clientObj.otp){
+                return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
+            }
+            const client = await clientService.updateEmail(req.whom.id, req.body.email);
+            // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+            client.mode = encrypt('1');
+            // create jwt refresh token
+            const refreshToken = createRefreshToken(client);
+            res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+            // create jwt access token
+            const accessToken = createClientAccessToken(client);
+            //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+            res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+            res.setHeader('authorization', 'Bearer ' + accessToken);
+            res.sendStatus(200);
+        }else {
+            res.status(400).json({'message': "No associated mail found with otp."});
+        } 
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -164,61 +177,32 @@ const dpUpload = async (req, res) => {
     }
     try {
         // find client from db using id in request parameter
-        const client = await clientService.findById(req.whom.id);
+        const client = await clientService.findActiveById(req.whom.id);
         if(!client) {
             // delete uploaded dp
             cleanUpFileUpload(req.file);
             return res.status(400).json({'message': "Not Found"});
         }
-        // get file extension
-        const fileExtension = path.extname(path.join(__dirname, "..", "dp-upload", req.file.filename));
-        // rename dp name to client email
-        await fsPromises.rename(path.join(__dirname, "..", "dp-upload", req.file.filename), path.join(__dirname, "..", "dp-upload", client.id + fileExtension));
-        // dp uploaded
-        client.dp = true;
-        res.status(200).json({'message': 'dp upload successful'});
+        const updatedClient = await clientService.updateProfileImg(req.whom.id, req.file);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        updatedClient.mode = encrypt('1');
+        // create jwt access token
+        const accessToken = createClientAccessToken(updatedClient);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        cleanUpFileUpload(req.file);
+        res.sendStatus(200);
     } catch (error) {
+        cleanUpFileUpload(req.file);
         return res.status(400).json({'message': error.message});
     }
 };
 
-const downloadProfileImg = async (req, res) => {
-    try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        const file = path.join(__dirname, "..", "dp-upload", `${req.params.id}.webp`)
-        /*  To explore later
-            ref: https://stackoverflow.com/questions/31105846/how-to-send-a-pdf-file-from-node-express-app-to-the-browser
-            show in browser or download
-            res.setHeader('Content-Disposition', `inline; filename=${file}`);
-            res.setHeader('Content-Disposition', `attachment; filename=${file}`);
-        */
-        res.download(file);
-    } catch (error) {
-        return res.status(400).json({'message': error.message});
-    }
-}
-
 const updatePassword = async (req, res) => {
     try {
-        const current_pw = req.body.current_pw;
-        const new_pw = req.body.new_pw;
-        // First thing First: validate current and new passwords in request body
-        routePasswordParamSchema.validateSync(current_pw);
-        routePasswordParamSchema.validateSync(new_pw);
-        // find client from db using id in request parameter
-        const client = await clientService.findForPassWord(req.whom.id);
-        if(!client) {
-            return res.status(400).json({'message': "Not Found"});
-        }
-        // check if current password is correct
-        // if match, then compare password
-        const match = await bcrypt.compare(current_pw, client.pw);
-        if(match) {
-            await clientService.updatePassword(req.whom.id, new_pw);
-            res.status(200).json({'message': 'Password update successfull'});
-        }else {
-            res.status(401).json({'message': 'Invalid password'});
-        }
+        await clientService.updatePassword(req.whom.id, req.body);
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -309,10 +293,11 @@ const cleanUpFileUpload = async (file) => {
 router.route('/onboarding').post(multerImgUpload, validate(schema), register );
 router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
 router.route('/profile/hc/update').put( verifyAccessToken, updateHomeClub );
-router.route('/profile/hcp/update').put( verifyAccessToken, updateHCP );
-router.route('/pw/update').put( verifyAccessToken, updatePassword );
+router.route('/profile/hcp/update').put( verifyAccessToken, validate(hcp_schema), updateHCP );
+router.route('/profile/pw/update').put( verifyAccessToken, validate(pw_schema), updatePassword );
+router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), updateEmail );
+router.route('/profile/dp/update').post(verifyAccessToken, multerImgUpload, dpUpload );
 router.route('/pw/reset').put( resetPassword );
-router.route('/profile/email/update').put( verifyAccessToken, updateEmail );
 router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );

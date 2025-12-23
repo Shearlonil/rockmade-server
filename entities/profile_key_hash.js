@@ -1,6 +1,9 @@
 module.exports = (sequelize, Sequelize) => {
   
-    const ClientImgBlurhash = sequelize.define('ClientImgBlurhash', {
+    const ProfileImgKeyhash = sequelize.define('ProfileImgKeyhash', {
+        /*  This class is responsible for hashing the image filename and storing in db.
+            This key is used in ImageComponent for reloading the image whenever the profile image is changed
+        */
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
@@ -11,16 +14,16 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying user.
             primaryKey:true
         },
-        blur_hash: {
+        key_hash: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
         },
     }, {
-        tableName: 'dp_blurhash',
+        tableName: 'dp_keyhash',
         timestamps: false,
         createdAt: false,
         updatedAt: false
     });  
-    return ClientImgBlurhash;
+    return ProfileImgKeyhash;
 };
