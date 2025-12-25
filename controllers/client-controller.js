@@ -266,9 +266,9 @@ const gameSearch = async (req, res) => {
 
 const getImg = async (req, res) => {
     try {
-        const id = req.params.id * 1;
-        routePositiveNumberMiscParamSchema.validateSync(req.params.filename);
+        routeStringMiscParamSchema.validateSync(req.params.filename);
         const filePath = path.join(__dirname, "..", "dp-upload", `${req.params.filename}.webp`)
+        console.log(filePath);
         if (fs.existsSync(filePath)) {
             res.sendFile(filePath);
         } else {

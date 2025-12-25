@@ -206,12 +206,20 @@ const updateProfileImg = async (id, dp) => {
         throw new Error("Account Not Found");
     }
     try {
+        const extension = path.extname(dp.filename);
+        const fileName = path.basename(dp.filename, extension);
+        const nameParts = fileName.split(' ');
+        const combined = nameParts.join('-');
         const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
-        await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", client.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
-        const keyHash = await ImgKeyHash.findOne({ where: { user_id: id } })
+        await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", fileName + '.webp'), buf, {encoding: 'base64', flag: 'w'});
+        const keyHash = await ImgKeyHash.findOne({ where: { user_id: id } });
         if(keyHash){
-            keyHash.key_hash = encrypt(dp.filename);
+            // save reference to current profile picture
+            const prevProfile = keyHash.key_hash;
+            keyHash.key_hash = combined;
             await keyHash.save();
+            // delete previous profile picture
+            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", prevProfile + '.webp'));
         }else {
             await ImgKeyHash.create({key_hash: encrypt(dp.filename), user_id: id});
         }
@@ -229,9 +237,9 @@ const updateProfileImg = async (id, dp) => {
             ]
         });
     } catch (error) {
-        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.id + '.webp' )) ){
+        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", dp.filename + '.webp' )) ){
             // delete compressed image
-            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.id + '.webp'));
+            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", dp.filename + '.webp'));
         }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
