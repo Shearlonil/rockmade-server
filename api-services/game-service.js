@@ -13,7 +13,13 @@ const User = db.users;
 const ImgKeyHash = db.imgKeyHash;
 
 const findOngoingRoundById = async id => {
-    const game = await Game.findByPk(id, {
+    const game = await Game.findOne({
+        where: { 
+            id,
+            status: {
+                [Op.between] : [1, 2]
+            }
+        },
         include: [
             {
                 model: GameHoleContest,
@@ -28,28 +34,32 @@ const findOngoingRoundById = async id => {
             },
         ]
     });
-    const course = await Course.findByPk(game.course_id,
-        { 
-            include: [
-                {
-                    model: Hole,
-                    as: 'holes',
-                    include: [
-                        { 
-                            model: Contest,
-                            as: 'contests',
-                            through: {
-                                where: {
-                                    course_id: game.course_id,
-                                }
-                            },
-                        }
-                    ],
-                },
-            ]
-        }
-    );
-    return {game, course};
+    if(game){
+        const course = await Course.findByPk(game.course_id,
+            { 
+                include: [
+                    {
+                        model: Hole,
+                        as: 'holes',
+                        include: [
+                            { 
+                                model: Contest,
+                                as: 'contests',
+                                through: {
+                                    where: {
+                                        course_id: game.course_id,
+                                    }
+                                },
+                            }
+                        ],
+                    },
+                ]
+            }
+        );
+        return {game, course};
+    }else {
+        throw new Error("Game not found");
+    }
 };
 
 const rawFindOngoingRoundById = async id => {
@@ -66,7 +76,7 @@ const rawFindOngoingRoundById = async id => {
 
 const createGame = async (creator_id, game) => {
     try {
-        const { name, course_id, hole_mode, startDate, mode, contests = [] } = game;
+        const { name, course_id, hole_mode, startDate, mode, contests = [], rounds } = game;
         const course = await Course.findOne({
             where: { 
                 status: true,
@@ -88,8 +98,10 @@ const createGame = async (creator_id, game) => {
         if(course){
             const date = format(startDate, "yyyy-MM-dd");
             const g =  await db.sequelize.transaction( async (t) => {
+                const join_code = getTime(new Date()) + new Date().toLocaleDateString('en-us', { weekday: 'short' }).toUpperCase() + billing.id;
+                const view_code = getTime(new Date()) + new Date().toLocaleDateString('en-us', { weekday: 'short' }).toUpperCase() + billing.id;
                 const game = await Game.create( 
-                    { name, date, rounds: 1, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
+                    { name, date, rounds, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
                     { transaction: t }
                 );
                 for (const c of contests) {
@@ -361,7 +373,7 @@ const addPlayers = async (creator_id, prop) => {
 const removePlayer = async ({player_id, game_id, creator_id}) => {
 };
 
-const updateGameContests = async (creator_id, game) => {
+const updateGameSpices = async (creator_id, game) => {
     try {
         const { course_id, game_id, contests = [] } = game;
         const course = await Course.findOne({
@@ -432,5 +444,5 @@ module.exports = {
     delOngoingRound,
     addPlayers,
     removePlayer,
-    updateGameContests,
+    updateGameSpices,
 };

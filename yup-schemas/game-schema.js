@@ -22,6 +22,9 @@ const schema = yup.object().shape({
         2   => Member Games
     */
     mode: yup.number().integer().min(1, "Invalid game mode specified").max(3, "Invalid game mode specified").required("Game mode is required"),
+    rounds: yup
+        .number().integer().min(1, "Minimum round required is 1")
+        .required("Round is required!"),
 });
 
 const updateSchema = yup.object().shape({
@@ -40,7 +43,7 @@ const updateSchema = yup.object().shape({
     hole_mode: yup.number().integer().min(1, "Invalid hole mode specified").max(3, "Invalid hole mode specified").required("No of holes is required"),
 });
 
-const contestsUpdateSchema = yup.object().shape({
+const spicesUpdateSchema = yup.object().shape({
     game_id: yup
         .number().integer().min(1, "Invalid Game specified")
         .required("Game is required!"),
@@ -48,6 +51,9 @@ const contestsUpdateSchema = yup.object().shape({
         .number().integer().min(1, "Invalid Golf Course specified")
         .required("Golf Course is required!"),
     contests: yup.array().of(contestSchema),
+    rounds: yup
+        .number().integer().min(1, "Minimum round required is 1")
+        .required("Round is required!"),
 });
 
 const addPlayerSchema = yup.object().shape({
@@ -65,4 +71,4 @@ const addPlayerSchema = yup.object().shape({
     })
 });
 
-module.exports = {schema, updateSchema, contestsUpdateSchema, addPlayerSchema};
+module.exports = {schema, updateSchema, spicesUpdateSchema, addPlayerSchema};

@@ -3,7 +3,7 @@ const router = express.Router();
 const { isAfter } = require('date-fns');
 
 const { verifyAccessToken } = require('../middleware/jwt');
-const {schema, updateSchema, contestsUpdateSchema, addPlayerSchema} = require('../yup-schemas/game-schema');
+const {schema, updateSchema, spicesUpdateSchema, addPlayerSchema} = require('../yup-schemas/game-schema');
 const validate = require('../middleware/schemer-validator');
 const { findById } = require('../api-services/client-service');
 const gameService = require('../api-services/game-service');
@@ -14,7 +14,7 @@ const findOngoingRoundById = async (req, res) => {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
         res.status(200).json(await gameService.findOngoingRoundById(req.params.id));
     } catch (error) {
-        return res.status(400).json({'message': error.message});
+        return res.status(404).json({'message': error.message});
     }
 };
 
@@ -89,13 +89,13 @@ const removePlayer = async (req, res) => {
     }
 };
 
-const updateGameContests = async (req, res) => {
+const updateGameSpices = async (req, res) => {
     try {
         const client = await findById(req.whom.id);
         if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
             throw new Error("Account doesn't support feature. Please subscribe");
         }
-        res.status(200).json(await gameService.updateGameContests(req.whom.id, req.body));
+        res.status(200).json(await gameService.updateGameSpices(req.whom.id, req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -108,6 +108,6 @@ router.route('/rounds/ongoing/:id/player/remove').put( verifyAccessToken, remove
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );
-router.route('/contests/update').post( verifyAccessToken, validate(contestsUpdateSchema), updateGameContests );
+router.route('/spices/update').post( verifyAccessToken, validate(spicesUpdateSchema), updateGameSpices );
 
 module.exports = router;
