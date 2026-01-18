@@ -16,14 +16,6 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
-        /*
-        TODO: delete comment
-        game_hole_rec_id: {
-            type: Sequelize.BIGINT,
-            allowNull:false,
-            notEmpty: true
-        },
-        */
         score: {
             type: Sequelize.INTEGER,
             allowNull:false,

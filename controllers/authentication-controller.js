@@ -7,7 +7,7 @@ const clientService = require('../api-services/client-service');
 const staffService = require('../api-services/staff-service');
 const otpMailService = require('../api-services/mail-otp-service');
 const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
-const generateOTP = require('../utils/otp-generator');
+const { generateOTP } = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
 

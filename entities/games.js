@@ -70,20 +70,6 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
-        join_code: {
-            type: Sequelize.STRING,
-            allowNull:false,
-            notEmpty: true,
-            //  game join code must be unique
-            unique: true
-        },
-        view_code: {
-            type: Sequelize.STRING,
-            allowNull:false,
-            notEmpty: true,
-            //  game view code must be unique
-            unique: true
-        },
     }, {
         tableName: 'games',
         timestamps: true,

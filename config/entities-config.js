@@ -11,6 +11,7 @@ db.users = require('../entities/users')(sequelize, Sequelize);
 db.imgKeyHash = require('../entities/profile_key_hash')(sequelize, Sequelize);
 db.courses = require('../entities/courses')(sequelize, Sequelize);
 db.games = require('../entities/games')(sequelize, Sequelize);
+db.gameCodes = require('../entities/game-codes')(sequelize, Sequelize);
 db.holes = require('../entities/holes')(sequelize, Sequelize);
 db.courseHoles = require('../entities/course-holes')(sequelize, Sequelize);
 db.contests = require('../entities/contests')(sequelize, Sequelize);
@@ -116,6 +117,22 @@ db.games.belongsTo(db.courses, {
     foreignKey: {
         name: 'course_id',
         allowNull: false,
+    }
+});
+
+// OneToOne relationship between ongoing games and codes
+db.games.hasOne(db.gameCodes, {
+    onDelete: 'CASCADE',
+    foreignKey: {
+        name: 'game_id',
+        allowNull: false
+    }
+});
+db.gameCodes.belongsTo(db.games, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column GameId
+        name: 'game_id',
+        allowNull: false
     }
 });
 
@@ -304,7 +321,7 @@ db.connect = async () => {
         /*  This checks what is the current state of the table in the database (which columns it has, what are their data types, etc), 
             and then performs the necessary changes in the table to make it match the model.
         */
-        await sequelize.sync( { alter: true } );
+        // await sequelize.sync( { alter: true } );
     } catch (error) {
         console.error('Unable to connect to the database:', error);
     }

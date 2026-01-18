@@ -1,10 +1,12 @@
 const db = require('../config/entities-config');
 const { Op } = require('sequelize');
 const { QueryTypes } = db.sequelize;
-const { format } = require('date-fns');
+const { format, getTime } = require('date-fns');
+const { gameCodeGenerator, generateOTP } = require('../utils/otp-generator');
 
 const Course = db.courses;
 const Game = db.games;
+const GameCodes = db.gameCodes;
 const Hole = db.holes;
 const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
@@ -23,6 +25,10 @@ const findOngoingRoundById = async id => {
         include: [
             {
                 model: GameHoleContest,
+            },
+            {
+                model: GameCodes,
+                attributes: ['join_code', 'view_code'],
             },
             {
                 model: User,
@@ -98,8 +104,6 @@ const createGame = async (creator_id, game) => {
         if(course){
             const date = format(startDate, "yyyy-MM-dd");
             const g =  await db.sequelize.transaction( async (t) => {
-                const join_code = getTime(new Date()) + new Date().toLocaleDateString('en-us', { weekday: 'short' }).toUpperCase() + billing.id;
-                const view_code = getTime(new Date()) + new Date().toLocaleDateString('en-us', { weekday: 'short' }).toUpperCase() + billing.id;
                 const game = await Game.create( 
                     { name, date, rounds, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
                     { transaction: t }
@@ -122,12 +126,21 @@ const createGame = async (creator_id, game) => {
                     user_id: creator_id,
                     game_id: game.id
                 }, { transaction: t });
+                // generate game codes
+                const code = await generateGameCode();
+                const join_code = '0' + generateOTP(4) + code;
+                const view_code = '1' + generateOTP(4) + code;
+                await GameCodes.create({ game_id: game.id, common_code: code, join_code, view_code }, { transaction: t })
                 return game;
             });
             return await Game.findByPk(g.id, {
                 include: [
                     {
                         model: GameHoleContest,
+                    },
+                    {
+                        model: GameCodes,
+                        attributes: ['join_code', 'view_code'],
                     },
                     {
                         model: User,
@@ -302,6 +315,15 @@ const delOngoingRound = async (creator_id, game_id) => {
                         transaction: t,
                     }
                 );
+                // delete associated codes
+                await db.sequelize.query(
+                    'DELETE gc FROM game_codes as gc WHERE gc.game_id = :game_id',
+                    {
+                        replacements: { game_id, },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
                 await Game.destroy( {
                     where: {  id: game_id },
                     force: true,
@@ -435,6 +457,20 @@ const updateGameSpices = async (creator_id, game) => {
         throw new Error(error.message); // rethrow the error for front-end 
     }
 }
+
+const generateGameCode = async () => {
+    let code;
+    let inExitence;
+    do {
+        code = gameCodeGenerator();
+        inExitence = await GameCodes.findOne({
+            where: { 
+                common_code: code,
+            }
+        });
+    } while (inExitence);
+    return code;
+};
 
 module.exports = {
     findOngoingRoundById,

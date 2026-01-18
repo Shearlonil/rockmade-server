@@ -3,7 +3,7 @@ const { QueryTypes } = db.sequelize;
 const bcrypt = require('bcryptjs');
 
 const otpMailService = require('./mail-otp-service');
-const generateOTP = require('../utils/otp-generator');
+const { generateOTP } = require('../utils/otp-generator');
 
 const Staff = db.staff;
 const Authority = db.staffAuths;

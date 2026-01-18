@@ -6,7 +6,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const { subDays, format } = require('date-fns');
 
-const generateOTP = require('../utils/otp-generator');
+const { generateOTP } = require('../utils/otp-generator');
 const { compress } = require('../utils/img-compression-agent');
 const { decrypt, encrypt } = require('../utils/crypto-helper');
 
