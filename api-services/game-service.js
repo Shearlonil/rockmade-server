@@ -1,7 +1,7 @@
 const db = require('../config/entities-config');
 const { Op } = require('sequelize');
 const { QueryTypes } = db.sequelize;
-const { format, getTime } = require('date-fns');
+const { format } = require('date-fns');
 const { gameCodeGenerator, generateOTP } = require('../utils/otp-generator');
 
 const Course = db.courses;
@@ -10,6 +10,8 @@ const GameCodes = db.gameCodes;
 const Hole = db.holes;
 const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
+const GameHoleRecords = db.gameHoleRecords;
+const HoleScores = db.holeScores;
 const UserGameGroup = db.userGameGroup;
 const User = db.users;
 const ImgKeyHash = db.imgKeyHash;
@@ -25,6 +27,12 @@ const findOngoingRoundById = async id => {
         include: [
             {
                 model: GameHoleContest,
+            },
+            {
+                model: GameHoleRecords,
+                include: {
+                    model: HoleScores,
+                }
             },
             {
                 model: GameCodes,
@@ -282,7 +290,8 @@ const updateGame = async (creator_id, game) => {
     }
 }
 
-
+const updateGroupScores = async (playerScores) => {
+};
 
 const delOngoingRound = async (creator_id, game_id) => {
     try {
@@ -477,6 +486,7 @@ module.exports = {
     rawFindOngoingRoundById,
     createGame,
     updateGame,
+    updateGroupScores,
     delOngoingRound,
     addPlayers,
     removePlayer,

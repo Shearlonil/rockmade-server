@@ -15,7 +15,7 @@ const { personal_info_schema, pw_schema, hcp_schema, email_schema } = require('.
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
 const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
-const { encrypt } = require('../utils/crypto-helper');
+const { encrypt, decrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
     try {
@@ -28,7 +28,8 @@ const findById = async (req, res) => {
 
 const dashboardInfo = async (req, res) => {
     try {
-        res.status(200).json(await clientService.dashboardInfo(req.whom.id));
+        const id = decrypt(req.whom.id);
+        res.status(200).json(await clientService.dashboardInfo(id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -36,7 +37,8 @@ const dashboardInfo = async (req, res) => {
 
 const myProfile = async (req, res) => {
     try {
-        res.status(200).json(await clientService.findActiveById(req.whom.id));
+        const id = decrypt(req.whom.id);
+        res.status(200).json(await clientService.findActiveById(id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -93,7 +95,8 @@ const register = async (req, res) => {
 
 const updatePersonalInfo = async (req, res) => {
     try {
-        const updatedClient = await clientService.updatePersonalInfo(req.whom.id, req.body);
+        const id = decrypt(req.whom.id);
+        const updatedClient = await clientService.updatePersonalInfo(id, req.body);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
         // create jwt access token
@@ -109,8 +112,9 @@ const updatePersonalInfo = async (req, res) => {
 
 const updateHomeClub = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.body.id);
-        const updatedClient = await clientService.updateHomeClub(req.whom.id, req.body.id);
+        // routePositiveNumberMiscParamSchema.validateSync(req.body.id);
+        const id = decrypt(req.whom.id);
+        const updatedClient = await clientService.updateHomeClub(id, req.body.id);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
         // create jwt access token
@@ -127,7 +131,8 @@ const updateHomeClub = async (req, res) => {
 const updateHCP = async (req, res) => {
     try {
         // First thing First: validate hcp in request body
-        const updatedClient = await clientService.updateHCP(req.whom.id, req.body.hcp);
+        const id = decrypt(req.whom.id);
+        const updatedClient = await clientService.updateHCP(id, req.body.hcp);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
         // create jwt access token
@@ -177,13 +182,14 @@ const dpUpload = async (req, res) => {
     }
     try {
         // find client from db using id in request parameter
-        const client = await clientService.findActiveById(req.whom.id);
+        const id = decrypt(req.whom.id);
+        const client = await clientService.findActiveById(id);
         if(!client) {
             // delete uploaded dp
             cleanUpFileUpload(req.file);
             return res.status(400).json({'message': "Not Found"});
         }
-        const updatedClient = await clientService.updateProfileImg(req.whom.id, req.file);
+        const updatedClient = await clientService.updateProfileImg(id, req.file);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
         // create jwt access token

@@ -47,6 +47,13 @@ const findById = async id => {
     });
 };
 
+// solely for checking user subscription
+const findSubById = async id => {
+    return await User.findByPk(id, {
+        attributes: ['id', 'sub_expiration' ]
+    });
+};
+
 const findByEmail = async email => {
     return await User.findOne({
         where: { email },
@@ -512,6 +519,7 @@ const changeClientStatus = async ({id, status}) => {
 module.exports = {
     findActiveById,
     findById,
+    findSubById,
     findByEmail,
     register,
     updateProfileImg,
