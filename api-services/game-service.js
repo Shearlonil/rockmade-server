@@ -290,7 +290,26 @@ const updateGame = async (creator_id, game) => {
     }
 }
 
-const updateGroupScores = async (playerScores) => {
+const updateGroupScores = async (game_id, playerScores) => {
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
 };
 
 const delOngoingRound = async (creator_id, game_id) => {

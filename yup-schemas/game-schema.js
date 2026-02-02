@@ -3,13 +3,13 @@ const yup = require("yup");
 const contestSchema = yup.object().shape({
     id: yup.number().required("Hole is required"),
     name: yup.string().required("Hole is required"),
-    holes: yup.array().of(yup.number()),
+    holes: yup.array().of(yup.number()).typeError("Collection of holes required"),
 });
 
 const scoreSchema = yup.object().shape({
     player: yup.number().required("Player is required"),
-    score: yup.number().required("Score is required"),
-    hole_no: yup.number().required("Hole number is required"),
+    score: yup.number().min(1, "Invalid player score specified").required("Score is required"),
+    hole_no: yup.number().min(1, "Invalid hole number specified").required("Hole number is required"),
 });
 
 const schema = yup.object().shape({
@@ -17,7 +17,7 @@ const schema = yup.object().shape({
     course_id: yup
         .number().integer().min(1, "Invalid Golf Course specified")
         .required("Golf Course is required!"),
-    contests: yup.array().of(contestSchema),
+    contests: yup.array().of(contestSchema).typeError("Collection of contests required"),
     startDate: yup.date().required("Game Date is required"),
     /*  1   => full 18
         2   => front 9
@@ -69,7 +69,7 @@ const addPlayerSchema = yup.object().shape({
     currentGroupSize: yup
         .number().integer().min(2, "Invalid group size specified").max(5, "Invalid group size specified")
         .required("Group size is required!"),
-    players: yup.array().of(yup.number()).min(1, "At least 1 player is required").required("Players are required"),
+    players: yup.array().of(yup.number()).typeError("Collection of players required").min(1, "At least 1 player is required").required("Players are required"),
     groupProp: yup.object().shape({
         round_no: yup.number().required("Group is required"),
         group_name: yup.number().required("Group name is required"),
@@ -77,8 +77,6 @@ const addPlayerSchema = yup.object().shape({
     })
 });
 
-const playerScoresSchema = yup.object().shape({
-    scores: yup.array().of(scoreSchema).min(1, "At least a player is required").required("Player scores are required"),
-});
+const playerScoresSchema = yup.array().of(scoreSchema).typeError("Collection of scores required").min(1, "At least a player is required").required("Player scores are required");
 
 module.exports = {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema};

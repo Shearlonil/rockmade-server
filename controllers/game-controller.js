@@ -97,8 +97,7 @@ const removePlayer = async (req, res) => {
 
 const updateGroupScores = async (req, res) => {
     try {
-        console.log(req.body);
-        res.status(200).json(await gameService.updateGroupScores(req.body));
+        res.status(200).json(await gameService.updateGroupScores(req.params.id, req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
