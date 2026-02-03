@@ -290,8 +290,9 @@ const updateGame = async (creator_id, game) => {
     }
 }
 
-const updateGroupScores = async (game_id, playerScores) => {
+const updateGroupScores = async (game_id, data) => {
     try {
+        const { hole_no, scores } = data;
         const game = await Game.findOne({
             where: { 
                 id: game_id,
@@ -301,7 +302,20 @@ const updateGroupScores = async (game_id, playerScores) => {
             },
         });
         if(game){
-            
+            await db.sequelize.transaction( async (t) => {
+                const [ghc, created] = await GameHoleRecords.upsert({ game_id, hole_no, round_no: game.current_round }, { returning: true, transaction: t, });
+                let game_hole_rec_id;
+                if(created && ghc.id){
+                    game_hole_rec_id = ghc.id;
+                }else {
+                    const ghc = await GameHoleRecords.findOne({ where: { game_id, hole_no, round_no: game.current_round } });
+                    game_hole_rec_id = ghc.id;
+                }
+                for(const score of scores){
+                    await HoleScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                }
+                return ghc;
+            });
         }else {
             throw new Error('Invalid Operation!.');
         }
