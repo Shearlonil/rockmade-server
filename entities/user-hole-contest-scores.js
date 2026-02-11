@@ -1,4 +1,4 @@
-module.exports = (sequelize, Sequelize) => {
+module.exports = (sequelize, Sequelize, gameHoleRecords, contests, users) => {
   
     const UserHoleContestScores = sequelize.define('UserHoleContestScores', {
         id:{
@@ -14,21 +14,29 @@ module.exports = (sequelize, Sequelize) => {
         contest_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            references: {
+                model: contests, // database table name would also work
+                key: 'id',
+            },
         },
         user_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            references: {
+                model: users, // database table name would also work
+                key: 'id',
+            }, 
         },
-        /*
-        TODO: delete comment
         game_hole_rec_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
-            notEmpty: true
+            references: {
+                model: gameHoleRecords, // database table name would also work
+                key: 'id',
+            }, 
         },
-        */
         score: {
             type: Sequelize.INTEGER,
             allowNull:false,
@@ -38,7 +46,21 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'user_hole_contest_scores',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [
+            {
+                unique: true,
+                /*  Sequelize's belongsToMany association automatically creates a unique key on the foreign keys within 
+                    the through model (junction table) by default. This composite unique key combines the foreign keys 
+                    of the source and target models, ensuring that each pair of associated records in the through table 
+                    is unique.
+
+                    ref: Gemini.
+                    when searching "sequelize belongsToMany creating unique key for sourceKey and targetKey"
+                */
+                fields: ['game_hole_rec_id', 'user_id', 'contest_id'], // Combine foreign keys and your custom field
+            },
+        ],
     });  
     return UserHoleContestScores;
 };

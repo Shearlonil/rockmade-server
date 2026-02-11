@@ -12,6 +12,7 @@ const Contest = db.contests;
 const GameHoleContest = db.gameHoleContests;
 const GameHoleRecords = db.gameHoleRecords;
 const HoleScores = db.holeScores;
+const HoleContestScores = db.userHoleContestScores;
 const UserGameGroup = db.userGameGroup;
 const User = db.users;
 const ImgKeyHash = db.imgKeyHash;
@@ -30,9 +31,10 @@ const findOngoingRoundById = async id => {
             },
             {
                 model: GameHoleRecords,
-                include: {
-                    model: HoleScores,
-                }
+                include: [
+                    { model: HoleScores, },
+                    { model: HoleContestScores, },
+                ]
             },
             {
                 model: GameCodes,
@@ -312,7 +314,65 @@ const updateGroupScores = async (game_id, data) => {
                     game_hole_rec_id = ghc.id;
                 }
                 for(const score of scores){
-                    await HoleScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                    if(score.score > 0){
+                        await HoleScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                    }else {
+                        await db.sequelize.query(
+                            `DELETE uhs FROM user_hole_scores as uhs WHERE uhs.user_id = :user_id and uhs.game_hole_rec_id = :game_hole_rec_id`,
+                            {
+                                replacements: { user_id: score.player, game_hole_rec_id },
+                                type: QueryTypes.DELETE,
+                                transaction: t,
+                            }
+                        );
+                    }
+                }
+                return ghc;
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const updateGroupContestScores = async (game_id, data) => {
+    try {
+        const { hole_no, scores, contest_id } = data;
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            await db.sequelize.transaction( async (t) => {
+                const [ghc, created] = await GameHoleRecords.upsert({ game_id, hole_no, round_no: game.current_round }, { returning: true, transaction: t, });
+                let game_hole_rec_id;
+                if(created && ghc.id){
+                    game_hole_rec_id = ghc.id;
+                }else {
+                    const ghc = await GameHoleRecords.findOne({ where: { game_id, hole_no, round_no: game.current_round } });
+                    game_hole_rec_id = ghc.id;
+                }
+                for(const score of scores){
+                    if(score.score > 0){
+                        await HoleContestScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                    }else {
+                        await db.sequelize.query(
+                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhs.user_id = :user_id and uhs.game_hole_rec_id = :game_hole_rec_id and uhs.contest_id = :contest_id`,
+                            {
+                                replacements: { user_id: score.player, game_hole_rec_id, contest_id },
+                                type: QueryTypes.DELETE,
+                                transaction: t,
+                            }
+                        );
+                    }
                 }
                 return ghc;
             });
@@ -520,6 +580,7 @@ module.exports = {
     createGame,
     updateGame,
     updateGroupScores,
+    updateGroupContestScores,
     delOngoingRound,
     addPlayers,
     removePlayer,

@@ -1,4 +1,4 @@
-module.exports = (sequelize, Sequelize, gameHoleRecords) => {
+module.exports = (sequelize, Sequelize, gameHoleRecords, users) => {
     // holds users scores for a particular hole in a game
     const UserHoleScores = sequelize.define('UserHoleScores', {
         id:{
@@ -22,7 +22,11 @@ module.exports = (sequelize, Sequelize, gameHoleRecords) => {
         user_id: {
             type: Sequelize.BIGINT,
             allowNull:false,
-            notEmpty: true
+            notEmpty: true,
+            references: {
+                model: users, // database table name would also work
+                key: 'id',
+            }, 
         },
         score: {
             type: Sequelize.INTEGER,

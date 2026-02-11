@@ -3,7 +3,7 @@ const router = express.Router();
 const { isAfter } = require('date-fns');
 
 const { verifyAccessToken } = require('../middleware/jwt');
-const {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema} = require('../yup-schemas/game-schema');
+const {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema, playerContestScoresSchema} = require('../yup-schemas/game-schema');
 const validate = require('../middleware/schemer-validator');
 const { findSubById } = require('../api-services/client-service');
 const gameService = require('../api-services/game-service');
@@ -103,6 +103,14 @@ const updateGroupScores = async (req, res) => {
     }
 };
 
+const updateGroupContestScores = async (req, res) => {
+    try {
+        res.status(200).json(await gameService.updateGroupContestScores(req.params.id, req.body));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const updateGameSpices = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
@@ -121,6 +129,7 @@ router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById
 router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/:id/player/remove').put( verifyAccessToken, removePlayer );
 router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
+router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );

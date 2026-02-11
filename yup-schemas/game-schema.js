@@ -8,7 +8,7 @@ const contestSchema = yup.object().shape({
 
 const scoreSchema = yup.object().shape({
     player: yup.number().required("Player is required"),
-    score: yup.number().min(1, "Invalid player score specified").required("Score is required"),
+    score: yup.number().min(0, "Invalid player score specified").required("Score is required"),
 });
 
 const schema = yup.object().shape({
@@ -81,4 +81,10 @@ const playerScoresSchema = yup.object().shape({
     scores: yup.array().of(scoreSchema).typeError("Collection of scores required").min(1, "At least a player is required").required("Player scores are required"),
 });
 
-module.exports = {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema};
+const playerContestScoresSchema = yup.object().shape({
+    hole_no: yup.number().min(1, "Invalid hole number specified").required("Hole number is required"),
+    contest_id: yup.number().min(1, "Invalid contest specified").required("Contest is required"),
+    scores: yup.array().of(scoreSchema).typeError("Collection of scores required").min(1, "At least a player is required").required("Player scores are required"),
+});
+
+module.exports = {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema, playerContestScoresSchema};
