@@ -26,6 +26,18 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
+        status: {
+            /*  status of player in the group, true for active, false for removed from game/group
+                if game status is 1 (yet to play), then when delete is initiated from the front-end, player is
+                completely removed from the game.
+                if game status is 2 (in play) & delete is initiated from the front-end, status (in this entity)
+                is set to false.... this is the sole purpose of this field
+            */
+            type: Sequelize.BOOLEAN,
+            defaultValue: true,
+            allowNull:false,
+            notEmpty: true
+        },
     }, {
         tableName: 'user_game_group',
         timestamps: true,

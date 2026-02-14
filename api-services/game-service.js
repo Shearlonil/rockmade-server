@@ -1,5 +1,7 @@
 const db = require('../config/entities-config');
-const { Op } = require('sequelize');
+// const { Op } = require('sequelize');
+const Op = db.Op;
+const sql = db.sql;
 const { QueryTypes } = db.sequelize;
 const { format } = require('date-fns');
 const { gameCodeGenerator, generateOTP } = require('../utils/otp-generator');
@@ -241,11 +243,36 @@ const updateGame = async (creator_id, game) => {
                                                 transaction: t,
                                             }
                                         );
+                                        // TODO: test
+                                        /*  delete previously saved scores for players regarding this unsupported contest for hole in new course. To do this, remember user_hole_contest_scores
+                                            is assocatied to only game_hole_record via field game_hole_rec_id. This means we need to get the game_hole_record first to get it's id to use
+                                            in the delete query. The game_hole_record can be fetched using the game id and hole_no */
+                                        await db.sequelize.query(
+                                            'DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id = (select id from game_hole_rec ghc where ghc.game_id = :game_id and ghc.hole_no = :hole_no)',
+                                            {
+                                                replacements: { 
+                                                    game_id, 
+                                                    hole_no: hole.hole_no
+                                                },
+                                                type: QueryTypes.DELETE,
+                                                transaction: t,
+                                            }
+                                        );
                                     }
                                 }
                             }
                         }
                     }else {
+                        // TODO: test
+                        // delete all saved contest scores regardless of course (new course or update - retaining old course)
+                        await db.sequelize.query(
+                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id IN (${sql.join('SELECT id FROM game_hole_rec ghc where game_id = :game_id', ', ')})`,
+                            {
+                                replacements: { game_id, },
+                                type: QueryTypes.DELETE,
+                                transaction: t,
+                            }
+                        );
                         // delete all attached contests regardless of course (new course or update - retaining old course)
                         await db.sequelize.query(
                             'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id',
@@ -327,6 +354,9 @@ const updateGroupScores = async (game_id, data) => {
                         );
                     }
                 }
+                // change game status to 'in play'
+                game.status = 2;
+                await game.save({transaction: t});
                 return ghc;
             });
         }else {
@@ -362,10 +392,10 @@ const updateGroupContestScores = async (game_id, data) => {
                 }
                 for(const score of scores){
                     if(score.score > 0){
-                        await HoleContestScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                        await HoleContestScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id, contest_id }, { transaction: t, });
                     }else {
                         await db.sequelize.query(
-                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhs.user_id = :user_id and uhs.game_hole_rec_id = :game_hole_rec_id and uhs.contest_id = :contest_id`,
+                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.user_id = :user_id and uhcs.game_hole_rec_id = :game_hole_rec_id and uhcs.contest_id = :contest_id`,
                             {
                                 replacements: { user_id: score.player, game_hole_rec_id, contest_id },
                                 type: QueryTypes.DELETE,
@@ -374,6 +404,9 @@ const updateGroupContestScores = async (game_id, data) => {
                         );
                     }
                 }
+                // change game status to 'in play'
+                game.status = 2;
+                await game.save({transaction: t});
                 return ghc;
             });
         }else {
