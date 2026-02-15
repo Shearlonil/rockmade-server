@@ -266,7 +266,7 @@ const updateGame = async (creator_id, game) => {
                         // TODO: test
                         // delete all saved contest scores regardless of course (new course or update - retaining old course)
                         await db.sequelize.query(
-                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id IN (${sql.join('SELECT id FROM game_hole_rec ghc where game_id = :game_id', ', ')})`,
+                            `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id)`,
                             {
                                 replacements: { game_id, },
                                 type: QueryTypes.DELETE,
@@ -559,9 +559,22 @@ const updateGameSpices = async (creator_id, game) => {
         return await db.sequelize.transaction( async (t) => {
             const game = await Game.findOne({
                 where: { creator_id, course_id, id: game_id },
+                include: [
+                    {
+                        model: GameHoleContest,
+                    },
+                ]
             });
             if(game){
-                // FIRST: delete all contests associated with previous holes for this course
+                // variable to hold newly added game hole contests to be sent to front-end for ui update
+                const ghcArr = [];
+                /*  Because of the possibility of contests changed from one hole to the other, or contests removed from holes, create 2 maps to hold
+                    new contests for holes supplied from front-end and previous contests saved in db.
+                */
+                const prevContestMap = new Map();
+                const newContestMap = new Map();
+                game.GameHoleContests.forEach(ghc => prevContestMap.set(ghc.dataValues.hole_id, ghc.dataValues));
+                // delete all contests associated with previous holes for this course
                 await db.sequelize.query(
                     'DELETE ghc FROM game_hole_contests as ghc WHERE ghc.game_id = :game_id',
                     {
@@ -575,16 +588,54 @@ const updateGameSpices = async (creator_id, game) => {
                     for(const hole_no of c.holes){
                         const hole = course.holes.find(h => h.hole_no === hole_no);
                         const contest = hole.contests.find(hc => hc.id === dbContest.id);
-                        await GameHoleContest.create(
-                            {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id},
-                            { transaction: t }
+                        // const ghc = {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id};
+                        const ghc = await GameHoleContest.create( {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id}, { transaction: t } );
+                        ghcArr.push(ghc);
+                        newContestMap.set(hole.dataValues.id, {hole_id: hole.dataValues.id, contest_id: contest.id, game_id: game.id})
+                    }
+                }
+                // find keys in prevContestMap not in newContestMap depicting/indicating removed contests for certain holes
+                const keysInPrevContestMap = [...prevContestMap.keys()].filter(key => !newContestMap.has(key));
+                // find keys with different values depicting/indicating replaced/swapped contests in holes
+                const keysWithDiffVal = [...prevContestMap.keys()].filter(key => newContestMap.has(key) && newContestMap.get(key).contest_id !== prevContestMap.get(key).contest_id);
+                // for removed contests, delete saved scores for all users in db
+                if(keysInPrevContestMap.length > 0){
+                    // delete all saved contest scores regardless of course (new course or update - retaining old course)
+                    const holeNoArr = keysInPrevContestMap.map(key => course.holes.find(h => h.id === key).dataValues.hole_no);
+                    await db.sequelize.query(
+                        `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id and ghc.hole_no IN (:hole_no))`,
+                        {
+                            replacements: { 
+                                game_id,
+                                hole_no: holeNoArr,
+                            },
+                            type: QueryTypes.DELETE,
+                            transaction: t,
+                        }
+                    );
+                }
+                // for replaced/swapped contests, simple update the contest id(s) in user_hole_contest_scores for the particular holes
+                if(keysWithDiffVal.length > 0){
+                    for (const key of keysWithDiffVal) {
+                        // for a hole id, find the hole number, get the old/previous contest id, get the new/updated contest id
+                        const hole_no = course.holes.find(h => h.id === key).dataValues.hole_no;
+                        const prev_contest_id = prevContestMap.get(key).contest_id;
+                        const new_contest_id = newContestMap.get(key).contest_id;
+                        await  db.sequelize.query(
+                            `UPDATE user_hole_contest_scores SET contest_id = :new_contest_id WHERE contest_id = :prev_contest_id and game_hole_rec_id = (
+                            SELECT id from game_hole_rec ghc where ghc.game_id = :game_id and ghc.hole_no = :hole_no)`,
+                            {
+                                replacements: { new_contest_id, prev_contest_id, hole_no, game_id },
+                                type: QueryTypes.UPDATE, // Specify the query type
+                                transaction: t,
+                            }
                         );
                     }
                 }
+                return ghcArr;
             }else {
                 throw new Error('Invalid Operation. Please contact game creator');
             }
-            return game;
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.

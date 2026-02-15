@@ -1,8 +1,8 @@
 const yup = require("yup");
 
 const contestSchema = yup.object().shape({
-    id: yup.number().required("Hole is required"),
-    name: yup.string().required("Hole is required"),
+    id: yup.number().required("Contest is required"),
+    name: yup.string().required("Contest is required"),
     holes: yup.array().of(yup.number()).typeError("Collection of holes required"),
 });
 

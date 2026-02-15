@@ -1,4 +1,4 @@
-const { Op, Sequelize, sql } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const sequelize = require('./sequelize-db-connect');
 
 const db = {};
@@ -6,7 +6,6 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 db.Op = Op;
-db.sql = sql;
 
 db.users = require('../entities/users')(sequelize, Sequelize);
 db.imgKeyHash = require('../entities/profile_key_hash')(sequelize, Sequelize);
