@@ -168,6 +168,9 @@ const createGame = async (creator_id, game) => {
             throw new Error("Invalid Golf Course specified");
         }
     } catch (error) {
+        if(error.name === 'SequelizeUniqueConstraintError'){
+            throw new Error(error.errors[0].value + " not available. Please use a different value");
+        }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 
