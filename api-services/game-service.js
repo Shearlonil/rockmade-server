@@ -332,6 +332,13 @@ const updateGroupScores = async (game_id, data) => {
                     [Op.between] : [1, 2]
                 }
             },
+            include: [
+                {
+                    model: User,
+                    attributes: ['id'],
+                    as: 'users',
+                },
+            ]
         });
         if(game){
             await db.sequelize.transaction( async (t) => {
@@ -345,7 +352,13 @@ const updateGroupScores = async (game_id, data) => {
                 }
                 for(const score of scores){
                     if(score.score > 0){
-                        await HoleScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                        // ensure user is part of the game, may have been deleted and sender didn't refresh
+                        const found = game.users.find(user => user.dataValues.id === score.player);
+                        if(found){
+                            await HoleScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id }, { transaction: t, });
+                        }else {
+                            throw new Error("Player not found. Possible delete operation performed on player. Consider refreshing your page");
+                        }
                     }else {
                         await db.sequelize.query(
                             `DELETE uhs FROM user_hole_scores as uhs WHERE uhs.user_id = :user_id and uhs.game_hole_rec_id = :game_hole_rec_id`,
@@ -382,6 +395,13 @@ const updateGroupContestScores = async (game_id, data) => {
                     [Op.between] : [1, 2]
                 }
             },
+            include: [
+                {
+                    model: User,
+                    attributes: ['id'],
+                    as: 'users',
+                },
+            ]
         });
         if(game){
             await db.sequelize.transaction( async (t) => {
@@ -395,7 +415,13 @@ const updateGroupContestScores = async (game_id, data) => {
                 }
                 for(const score of scores){
                     if(score.score > 0){
-                        await HoleContestScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id, contest_id }, { transaction: t, });
+                        // ensure user is part of the game, may have been deleted and sender didn't refresh
+                        const found = game.users.find(user => user.dataValues.id === score.player);
+                        if(found){
+                            await HoleContestScores.upsert({ user_id: score.player, score: score.score, game_hole_rec_id, contest_id }, { transaction: t, });
+                        }else {
+                            throw new Error(`Player not found. Possible delete operation performed on player. Consider refreshing your page`);
+                        }
                     }else {
                         await db.sequelize.query(
                             `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.user_id = :user_id and uhcs.game_hole_rec_id = :game_hole_rec_id and uhcs.contest_id = :contest_id`,
@@ -482,7 +508,7 @@ const addPlayers = async (creator_id, prop) => {
         const game = await Game.findOne({
             where: { 
                 id: game_id,
-                creator_id,
+                // creator_id,
                 status: {
                     [Op.between] : [1, 2]
                 }
@@ -530,7 +556,116 @@ const addPlayers = async (creator_id, prop) => {
     }
 };
 
-const removePlayer = async ({player_id, game_id, creator_id}) => {
+const updatePlayerGroup = async (creator_id, { player_id, game_id, group_no }) => {
+    // NOTE: only game creator can delete a player
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                creator_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            await db.sequelize.transaction( async (t) => {
+                // Remove user from group
+                await db.sequelize.query(
+                    'DELETE ugg FROM user_game_group as ugg WHERE ugg.game_id = :game_id and ugg.user_id = :player_id',
+                    {
+                        replacements: { game_id, player_id },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // delete all recorded contests scores for this user (if any)
+                await db.sequelize.query(
+                    'DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.user_id = :player_id and uhcs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
+                    {
+                        replacements: { 
+                            game_id, 
+                            player_id
+                        },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // delete all recorded hole scores for this user (if any)
+                await db.sequelize.query(
+                    'DELETE uhs FROM user_hole_scores as uhs WHERE uhs.user_id = :player_id and uhs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
+                    {
+                        replacements: { 
+                            game_id, 
+                            player_id
+                        },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+const removePlayer = async (creator_id, { player_id, game_id }) => {
+    // NOTE: only game creator can delete a player
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                creator_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            await db.sequelize.transaction( async (t) => {
+                // Remove user from group
+                await db.sequelize.query(
+                    'DELETE ugg FROM user_game_group as ugg WHERE ugg.game_id = :game_id and ugg.user_id = :player_id',
+                    {
+                        replacements: { game_id, player_id },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // delete all recorded contests scores for this user (if any)
+                await db.sequelize.query(
+                    'DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.user_id = :player_id and uhcs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
+                    {
+                        replacements: { 
+                            game_id, 
+                            player_id
+                        },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+                // delete all recorded hole scores for this user (if any)
+                await db.sequelize.query(
+                    'DELETE uhs FROM user_hole_scores as uhs WHERE uhs.user_id = :player_id and uhs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
+                    {
+                        replacements: { 
+                            game_id, 
+                            player_id
+                        },
+                        type: QueryTypes.DELETE,
+                        transaction: t,
+                    }
+                );
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        throw new Error(error.message);
+    }
 };
 
 const updateGameSpices = async (creator_id, game) => {
@@ -670,6 +805,7 @@ module.exports = {
     updateGroupContestScores,
     delOngoingRound,
     addPlayers,
+    updatePlayerGroup,
     removePlayer,
     updateGameSpices,
 };

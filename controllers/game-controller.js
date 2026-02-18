@@ -3,7 +3,14 @@ const router = express.Router();
 const { isAfter } = require('date-fns');
 
 const { verifyAccessToken } = require('../middleware/jwt');
-const {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema, playerContestScoresSchema} = require('../yup-schemas/game-schema');
+const { 
+    schema, 
+    updateSchema, 
+    spicesUpdateSchema, 
+    addPlayerSchema, 
+    playerScoresSchema, 
+    playerContestScoresSchema, 
+    playerRemovalSchema} = require('../yup-schemas/game-schema');
 const validate = require('../middleware/schemer-validator');
 const { findSubById } = require('../api-services/client-service');
 const gameService = require('../api-services/game-service');
@@ -86,6 +93,9 @@ const removePlayer = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
         const client = await findSubById(id);
+        if(id == req.body.player_id){
+            throw new Error("Invalid Operation!");
+        }
         if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
             throw new Error("Account doesn't support feature. Please subscribe");
         }
@@ -127,7 +137,7 @@ const updateGameSpices = async (req, res) => {
 router.route('/rounds/ongoing/raw/:id').get( verifyAccessToken, rawFindOngoingRoundById );
 router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
-router.route('/rounds/ongoing/:id/player/remove').put( verifyAccessToken, removePlayer );
+router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
 router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
 router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );

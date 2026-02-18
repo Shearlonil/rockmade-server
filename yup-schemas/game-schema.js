@@ -71,7 +71,7 @@ const addPlayerSchema = yup.object().shape({
     players: yup.array().of(yup.number()).typeError("Collection of players required").min(1, "At least 1 player is required").required("Players are required"),
     groupProp: yup.object().shape({
         round_no: yup.number().required("Group is required"),
-        group_name: yup.number().required("Group name is required"),
+        group_name: yup.number().min(1, "Invalid Group specified").required("Group name is required"),
         isNew: yup.boolean().required("Group status not indicated"),
     })
 });
@@ -87,4 +87,53 @@ const playerContestScoresSchema = yup.object().shape({
     scores: yup.array().of(scoreSchema).typeError("Collection of scores required").min(1, "At least a player is required").required("Player scores are required"),
 });
 
-module.exports = {schema, updateSchema, spicesUpdateSchema, addPlayerSchema, playerScoresSchema, playerContestScoresSchema};
+const playerRemovalSchema = yup.object().shape({
+    game_id: yup
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
+    player_id: yup
+        .number().integer().min(1, "Invalid Player specified")
+        .required("Player is required!"),
+});
+
+const playerGroupChangeSchema = yup.object().shape({
+    game_id: yup
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
+    player_id: yup
+        .number().integer().min(1, "Invalid Player specified")
+        .required("Player is required!"),
+    group_name: yup
+        .number().integer().min(1, "Invalid Group specified")
+        .required("Group name is required"),
+});
+
+const playersGroupSwapSchema = yup.object().shape({
+    game_id: yup
+        .number().integer().min(1, "Invalid Game specified")
+        .required("Game is required!"),
+    playerOne: yup.object().shape({
+        id: yup.number().integer().min(1, "Invalid Source Player specified").required("Source Player is required"),
+        group_name: yup
+            .number().integer().min(1, "Invalid Group specified")
+            .required("Group name is required"),
+    }),
+    playerTwo: yup.object().shape({
+        id: yup.number().integer().min(1, "Invalid Destination Player specified").required("Destination Player is required"),
+        group_name: yup
+            .number().integer().min(1, "Invalid Group specified")
+            .required("Group name is required"),
+    }),
+});
+
+module.exports = {
+    schema, 
+    updateSchema, 
+    spicesUpdateSchema, 
+    addPlayerSchema, 
+    playerScoresSchema, 
+    playerContestScoresSchema,
+    playerRemovalSchema,
+    playerGroupChangeSchema,
+    playersGroupSwapSchema,
+};
