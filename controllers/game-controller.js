@@ -10,6 +10,8 @@ const {
     addPlayerSchema, 
     playerScoresSchema, 
     playerContestScoresSchema, 
+    playerGroupChangeSchema,
+    playersGroupSwapSchema,
     playerRemovalSchema} = require('../yup-schemas/game-schema');
 const validate = require('../middleware/schemer-validator');
 const { findSubById } = require('../api-services/client-service');
@@ -89,6 +91,19 @@ const addPlayers = async (req, res) => {
     }
 };
 
+const updatePlayerGroup = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        const client = await findSubById(id);
+        if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
+            throw new Error("Account doesn't support feature. Please subscribe");
+        }
+        res.status(200).json(await gameService.updatePlayerGroup(id, req.body));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const removePlayer = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
@@ -138,6 +153,7 @@ router.route('/rounds/ongoing/raw/:id').get( verifyAccessToken, rawFindOngoingRo
 router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
+router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );
 router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
 router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );

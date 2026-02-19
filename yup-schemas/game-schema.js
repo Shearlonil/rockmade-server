@@ -70,9 +70,8 @@ const addPlayerSchema = yup.object().shape({
         .required("Group size is required!"),
     players: yup.array().of(yup.number()).typeError("Collection of players required").min(1, "At least 1 player is required").required("Players are required"),
     groupProp: yup.object().shape({
-        round_no: yup.number().required("Group is required"),
+        round_no: yup.number().required("Round is required"),
         group_name: yup.number().min(1, "Invalid Group specified").required("Group name is required"),
-        isNew: yup.boolean().required("Group status not indicated"),
     })
 });
 
@@ -103,9 +102,13 @@ const playerGroupChangeSchema = yup.object().shape({
     player_id: yup
         .number().integer().min(1, "Invalid Player specified")
         .required("Player is required!"),
-    group_name: yup
-        .number().integer().min(1, "Invalid Group specified")
-        .required("Group name is required"),
+    currentGroupSize: yup
+        .number().integer().min(2, "Invalid group size specified").max(5, "Invalid group size specified")
+        .required("Group size is required!"),
+    groupProp: yup.object().shape({
+        round_no: yup.number().required("Round is required"),
+        group_name: yup.number().min(1, "Invalid Group specified").required("Group name is required"),
+    }),
 });
 
 const playersGroupSwapSchema = yup.object().shape({

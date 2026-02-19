@@ -505,6 +505,9 @@ const delOngoingRound = async (creator_id, game_id) => {
 const addPlayers = async (creator_id, prop) => {
     const { game_id, currentGroupSize, players, groupProp } = prop;
     try {
+        if(currentGroupSize < 2 || currentGroupSize > 5){
+            throw new Error("Invalid group size specifiec");
+        }
         const game = await Game.findOne({
             where: { 
                 id: game_id,
@@ -515,24 +518,17 @@ const addPlayers = async (creator_id, prop) => {
             },
         });
         if(game){
-            if(groupProp.isNew){
-                // be sure size of group isn't more than currentGroupSize
-                if (players.length > currentGroupSize) {
-                    throw new Error("Players exceed group size");
+            // First count number of existing members in the group
+            const count = await UserGameGroup.count({
+                where: {
+                    name: groupProp.group_name,
+                    game_id: game.id,
+                    round_no: groupProp.round_no,
                 }
-            }else {
-                // add players to existing group. First count number of existing members in the group
-                const count = await UserGameGroup.count({
-                    where: {
-                        name: groupProp.group_name,
-                        game_id: game.id,
-                        round_no: groupProp.round_no,
-                    }
-                });
-                // be sure size of new players + count (existing player) isn't more than currentGroupSize
-                if ((players.length + count) > currentGroupSize) {
-                    throw new Error("Players exceed group size");
-                }
+            });
+            // be sure size of new players + count (existing player) isn't more than currentGroupSize
+            if ((players.length + count) > currentGroupSize) {
+                throw new Error("Players exceed group size");
             }
             await db.sequelize.transaction( async (t) => {
                 for (const player of players) {
@@ -556,53 +552,42 @@ const addPlayers = async (creator_id, prop) => {
     }
 };
 
-const updatePlayerGroup = async (creator_id, { player_id, game_id, group_no }) => {
-    // NOTE: only game creator can delete a player
+const updatePlayerGroup = async (creator_id, prop) => {
+    const { player_id, game_id, currentGroupSize, groupProp } = prop;
     try {
+        if(currentGroupSize < 2 || currentGroupSize > 5){
+            throw new Error("Invalid group size specified");
+        }
         const game = await Game.findOne({
             where: { 
                 id: game_id,
                 creator_id,
-                status: {
-                    [Op.between] : [1, 2]
-                }
+                status: 1   //  can only change player group if game isn't started yet
             },
         });
         if(game){
+            const count = await UserGameGroup.count({
+                where: {
+                    name: groupProp.group_name,
+                    game_id: game.id,
+                    round_no: groupProp.round_no,
+                }
+            });
+            // be sure incoming user (1) + count (existing players in group) isn't more than currentGroupSize
+            if ((1 + count) > currentGroupSize) {
+                throw new Error("Players exceed group size");
+            }
             await db.sequelize.transaction( async (t) => {
-                // Remove user from group
-                await db.sequelize.query(
-                    'DELETE ugg FROM user_game_group as ugg WHERE ugg.game_id = :game_id and ugg.user_id = :player_id',
+                await  db.sequelize.query(
+                    `UPDATE user_game_group SET name = :group_name WHERE game_id = :game_id and user_id = :player_id and round_no = :round`,
                     {
-                        replacements: { game_id, player_id },
-                        type: QueryTypes.DELETE,
+                        replacements: { player_id, round: game.current_round, group_name: groupProp.group_name, game_id },
+                        type: QueryTypes.UPDATE, // Specify the query type
                         transaction: t,
                     }
                 );
-                // delete all recorded contests scores for this user (if any)
-                await db.sequelize.query(
-                    'DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.user_id = :player_id and uhcs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
-                    {
-                        replacements: { 
-                            game_id, 
-                            player_id
-                        },
-                        type: QueryTypes.DELETE,
-                        transaction: t,
-                    }
-                );
-                // delete all recorded hole scores for this user (if any)
-                await db.sequelize.query(
-                    'DELETE uhs FROM user_hole_scores as uhs WHERE uhs.user_id = :player_id and uhs.game_hole_rec_id IN (select id from game_hole_rec ghc where ghc.game_id = :game_id)',
-                    {
-                        replacements: { 
-                            game_id, 
-                            player_id
-                        },
-                        type: QueryTypes.DELETE,
-                        transaction: t,
-                    }
-                );
+                game.group_size = currentGroupSize;
+                await game.save({ transaction: t });
             });
         }else {
             throw new Error('Invalid Operation!.');
