@@ -186,19 +186,20 @@ const register = async client => {
                 , { transaction: t }
             );
             if(dp){
-                client.id = c.id;
+                const newFileName = `${Date.now()}-${c.id}`;
+                client.dpName = newFileName;
                 const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
-                await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", c.id + '.webp'), buf, {encoding: 'base64', flag: 'w'});
-                await ImgKeyHash.create({key_hash: encrypt(dp.filename), user_id: c.id}, { transaction: t });
+                await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", newFileName + '.webp'), buf, {encoding: 'base64', flag: 'w'});
+                await ImgKeyHash.create({key_hash: newFileName, user_id: c.id}, { transaction: t });
             }
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email } }, { transaction: t });
             return c;
         });
     } catch (error) {
-        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.id + '.webp' )) ){
+        if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.dpName + '.webp' )) ){
             // delete compressed image
-            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.id + '.webp'));
+            await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.dpName + '.webp'));
         }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -213,22 +214,25 @@ const updateProfileImg = async (id, dp) => {
         throw new Error("Account Not Found");
     }
     try {
+        /*
         const extension = path.extname(dp.filename);
         const fileName = path.basename(dp.filename, extension);
         const nameParts = fileName.split(' ');
         const combined = nameParts.join('-');
+        */
+        const newFileName = `${Date.now()}-${id}`;
         const buf = await compress(path.join(__dirname, "..", "file-upload", dp.filename));
-        await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", fileName + '.webp'), buf, {encoding: 'base64', flag: 'w'});
+        await fsPromises.writeFile(path.join(__dirname, "..", "dp-upload", newFileName + '.webp'), buf, {encoding: 'base64', flag: 'w'});
         const keyHash = await ImgKeyHash.findOne({ where: { user_id: id } });
         if(keyHash){
             // save reference to current profile picture
             const prevProfile = keyHash.key_hash;
-            keyHash.key_hash = combined;
+            keyHash.key_hash = newFileName;
             await keyHash.save();
             // delete previous profile picture
             await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", prevProfile + '.webp'));
         }else {
-            await ImgKeyHash.create({key_hash: encrypt(dp.filename), user_id: id});
+            await ImgKeyHash.create({key_hash: newFileName, user_id: id});
         }
         // fetch updated client and return
         return await User.findByPk(id, {

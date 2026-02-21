@@ -448,6 +448,41 @@ const updateGroupContestScores = async (game_id, data) => {
     }
 };
 
+const updateGroupSize = async ({ game_id, group_size}) => {
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                status: 1
+            },
+        });
+        if(game){
+            await db.sequelize.transaction( async (t) => {
+            
+                const [results, metadata] = await db.sequelize.query(
+                    `SELECT COUNT(name) as group_size, name, round_no, game_id FROM user_game_group where round_no = :round_no and game_id = :game_id 
+                    GROUP BY name, game_id`, {
+                        replacements: { 
+                            round_no: game.current_round, game_id
+                        },
+                    }
+                );
+                const filtered = results.filter(result => result.group_size > group_size);
+                for (const element of filtered) {
+                    const diff = element.group_size - group_size;
+                    console.log(element, 'difference', diff);
+                }
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 const delOngoingRound = async (creator_id, game_id) => {
     try {
         const game = await Game.findOne({
@@ -788,6 +823,7 @@ module.exports = {
     updateGame,
     updateGroupScores,
     updateGroupContestScores,
+    updateGroupSize,
     delOngoingRound,
     addPlayers,
     updatePlayerGroup,

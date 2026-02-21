@@ -120,6 +120,17 @@ const removePlayer = async (req, res) => {
     }
 };
 
+const updateGroupSize = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.body.game_id);
+        routePositiveNumberMiscParamSchema.validateSync(req.body.group_size);
+        await gameService.updateGroupSize(req.body);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const updateGroupScores = async (req, res) => {
     try {
         res.status(200).json(await gameService.updateGroupScores(req.params.id, req.body));
@@ -160,5 +171,6 @@ router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );
 router.route('/spices/update').post( verifyAccessToken, validate(spicesUpdateSchema), updateGameSpices );
+router.route('/groups/update-size').put( verifyAccessToken, updateGroupSize );
 
 module.exports = router;
