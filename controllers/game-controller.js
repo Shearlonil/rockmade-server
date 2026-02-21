@@ -124,8 +124,7 @@ const updateGroupSize = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.body.game_id);
         routePositiveNumberMiscParamSchema.validateSync(req.body.group_size);
-        await gameService.updateGroupSize(req.body);
-        res.sendStatus(200);
+        res.status(200).json(await gameService.updateGroupSize(req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }

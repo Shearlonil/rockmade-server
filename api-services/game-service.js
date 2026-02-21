@@ -457,8 +457,7 @@ const updateGroupSize = async ({ game_id, group_size}) => {
             },
         });
         if(game){
-            await db.sequelize.transaction( async (t) => {
-            
+            return await db.sequelize.transaction( async (t) => {
                 const [results, metadata] = await db.sequelize.query(
                     `SELECT COUNT(name) as group_size, name, round_no, game_id FROM user_game_group where round_no = :round_no and game_id = :game_id 
                     GROUP BY name, game_id`, {
@@ -468,10 +467,31 @@ const updateGroupSize = async ({ game_id, group_size}) => {
                     }
                 );
                 const filtered = results.filter(result => result.group_size > group_size);
+                const removedUserIds = [];
                 for (const element of filtered) {
-                    const diff = element.group_size - group_size;
-                    console.log(element, 'difference', diff);
+                    const difference = element.group_size - group_size;
+                    const [results, metadata] = await db.sequelize.query(
+                        `SELECT user_id FROM user_game_group WHERE user_game_group.name = :group_name AND user_game_group.game_id = :game_id AND 
+                        round_no = :round_no ORDER BY user_game_group.createdAt DESC LIMIT :difference`, {
+                            replacements: { 
+                                difference, game_id, group_name: element.name, round_no: game.current_round
+                            },
+                        }
+                    );
+                    const queryArr = results.map(result => result.user_id);
+                    removedUserIds.push(...queryArr);
+                    /* result is an array of object with user_id as the only property. Convert it to an array of numbers to use in delete query */
+                    await db.sequelize.query(
+                        `DELETE ugg FROM user_game_group as ugg WHERE ugg.name = :group_name AND ugg.round_no = :round_no AND ugg.game_id = :game_id AND 
+                        ugg.user_id IN (:queryArr)`,
+                        {
+                            replacements: { game_id, group_name: element.name, round_no: game.current_round, queryArr },
+                            type: QueryTypes.DELETE,
+                            transaction: t,
+                        }
+                    );
                 }
+                return removedUserIds;
             });
         }else {
             throw new Error('Invalid Operation!.');
