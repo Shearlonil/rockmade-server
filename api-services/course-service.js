@@ -7,7 +7,7 @@ const Staff = db.staff;
 const Hole = db.holes;
 const Contest = db.contests;
 const CourseHole = db.courseHoles;
-const HoleContest = db.holesContests;
+const HoleContest = db.courseHolesContests;
 
 const findById = async (id) => {
     return await Course.findByPk(id,

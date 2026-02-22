@@ -3,7 +3,7 @@ const { QueryTypes } = db.sequelize;
 
 const Contest = db.contests;
 const Hole = db.holes;
-const HoleContest = db.holesContests;
+const HoleContest = db.courseHolesContests;
 
 const findById = async (id) => {
     return await Contest.findByPk(id);
