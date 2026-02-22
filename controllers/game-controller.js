@@ -120,6 +120,15 @@ const removePlayer = async (req, res) => {
     }
 };
 
+const swapPlayers = async (req, res) => {
+    try {
+        await gameService.swapPlayers(req.body)
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const updateGroupSize = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.body.game_id);
@@ -171,5 +180,6 @@ router.route('/update').post( verifyAccessToken, validate(updateSchema), updateG
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );
 router.route('/spices/update').post( verifyAccessToken, validate(spicesUpdateSchema), updateGameSpices );
 router.route('/groups/update-size').put( verifyAccessToken, updateGroupSize );
+router.route('/groups/players/swap').put( verifyAccessToken, validate(playersGroupSwapSchema), swapPlayers );
 
 module.exports = router;

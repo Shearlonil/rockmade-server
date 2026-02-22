@@ -448,6 +448,59 @@ const updateGroupContestScores = async (game_id, data) => {
     }
 };
 
+const swapPlayers = async (data) => {
+    const { game_id, playerOne, playerTwo} = data;
+    try {
+        const game = await Game.findOne({
+            where: { 
+                id: game_id,
+                status: 1
+            },
+        });
+        if(game){
+            return await db.sequelize.transaction( async (t) => {
+                // verify if both players exist in the game
+                const userIds = [playerOne.id, playerTwo.id];
+                const [countResult, countMetadata] = await db.sequelize.query(
+                    `SELECT COUNT(user_id) as users FROM user_game_group WHERE game_id = :game_id AND round_no = :round_no AND user_id IN (:userIds)`, {
+                        replacements: { 
+                            userIds, game_id, round_no: game.current_round
+                        },
+                    }
+                );
+                if(countResult[0].users === 2){
+                    // update group for playerOne, set to group of playerTwo
+                    await  db.sequelize.query(
+                        `UPDATE user_game_group SET name = :group_name WHERE game_id = :game_id and user_id = :player_id and round_no = :round`,
+                        {
+                            replacements: { player_id: playerOne.id, round: game.current_round, group_name: playerTwo.group_name, game_id },
+                            type: QueryTypes.UPDATE, // Specify the query type
+                            transaction: t,
+                        }
+                    );
+                    // update group for playerTwo, set to group of playerOne
+                    await  db.sequelize.query(
+                        `UPDATE user_game_group SET name = :group_name WHERE game_id = :game_id and user_id = :player_id and round_no = :round`,
+                        {
+                            replacements: { player_id: playerTwo.id, round: game.current_round, group_name: playerOne.group_name, game_id },
+                            type: QueryTypes.UPDATE, // Specify the query type
+                            transaction: t,
+                        }
+                    );
+                }else {
+                    throw new Error("Cannot swap users.");
+                }
+            });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 const updateGroupSize = async ({ game_id, group_size}) => {
     try {
         const game = await Game.findOne({
@@ -843,6 +896,7 @@ module.exports = {
     updateGame,
     updateGroupScores,
     updateGroupContestScores,
+    swapPlayers,
     updateGroupSize,
     delOngoingRound,
     addPlayers,
