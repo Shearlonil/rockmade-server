@@ -395,14 +395,14 @@ const dashboardInfo = async (id) => {
     // TODO: LAST 5 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
     // Recent/last 5 games played
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
-        games.createdAt from user_game_group join games on user_game_group.game_id = games.id where user_id = :id 
-        and games.status = 3 limit 5`,
+        `select distinct a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+        count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
+        b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id limit 5`,
         {
             replacements: { id },
         }
     );
-    // Curses and number of games played
+    // Courses and number of games played
     const [results, metadata] = await db.sequelize.query(
         `select count(distinct course_id) as courses_played, count(distinct game_id) as games_played from 
         user_game_group join games on user_game_group.game_id = games.id where user_id = :id and games.status = 3`,

@@ -544,6 +544,8 @@ const updateGroupSize = async ({ game_id, group_size}) => {
                         }
                     );
                 }
+                game.group_size = group_size;
+                await game.save({ transaction: t });
                 return removedUserIds;
             });
         }else {
