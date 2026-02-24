@@ -16,7 +16,7 @@ const {
 const validate = require('../middleware/schemer-validator');
 const { findSubById } = require('../api-services/client-service');
 const gameService = require('../api-services/game-service');
-const { routePositiveNumberMiscParamSchema } = require('../yup-schemas/request-params');
+const { routePositiveNumberMiscParamSchema, routeStringMiscParamSchema } = require('../yup-schemas/request-params');
 const { decrypt } = require('../utils/crypto-helper');
 
 const findOngoingRoundById = async (req, res) => {
@@ -28,10 +28,26 @@ const findOngoingRoundById = async (req, res) => {
     }
 };
 
-const rawFindOngoingRoundById = async (req, res) => {
+const userRecentGames = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await gameService.rawFindOngoingRoundById(req.params.id));
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
+        routeStringMiscParamSchema.validateSync(req.query.cursor);
+        const id = decrypt(req.whom.id);
+        const game_group_id = decrypt(req.query.cursor);
+        res.status(200).json(await gameService.userRecentGames(id, game_group_id, req.query.page_size));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const userRecentGamesSearch = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.query.queryStr);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
+        routeStringMiscParamSchema.validateSync(req.query.cursor);
+        const id = decrypt(req.whom.id);
+        const game_group_id = decrypt(req.query.cursor);
+        res.status(200).json(await gameService.userRecentGamesSearch(id, game_group_id, req.query.page_size, req.query.queryStr));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -168,13 +184,14 @@ const updateGameSpices = async (req, res) => {
     }
 };
 
-router.route('/rounds/ongoing/raw/:id').get( verifyAccessToken, rawFindOngoingRoundById );
 router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
 router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );
 router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
 router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
+router.route('/users/rounds/recent').get( verifyAccessToken, userRecentGames );
+router.route('/users/rounds/recent/query').get( verifyAccessToken, userRecentGamesSearch );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );

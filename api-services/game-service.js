@@ -80,16 +80,45 @@ const findOngoingRoundById = async id => {
     }
 };
 
-const rawFindOngoingRoundById = async id => {
+const userRecentGames = async (user_id, game_group_id, pageSize) => {
+    /*  CURSOR BASED PAGINATION
+        ref:
+            https://apisyouwonthate.com/blog/api-design-basics-pagination/
+            https://bool.dev/blog/detail/pagination-strategies
+            https://medium.com/@anshulkahar2211/smart-caching-strategies-for-api-pagination-and-filtering-with-redis-5cf6b0a63b0f
+    */
+    let page_size = pageSize * 1;    // convert to number
     // Ongoing Games/Rounds
-    const [ongoingRoundsResult, ongoingRoundsMetadata] = await db.sequelize.query(
-        `select games.id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, courses.name as course_name, 
-        courses.id as course_id, games.createdAt from games join courses on games.course_id = courses.id where games.id = :id and games.status < 3`,
+    const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
+        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
+        games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
+        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
+        games.status = 3 and a.id > :game_group_id group by a.game_id, a.id ORDER BY a.id limit :page_size`,
         {
-            replacements: { id },
+            replacements: { user_id, game_group_id, page_size },
         }
     );
-    return ongoingRoundsResult[0];
+    return recentGamesResult;
+};
+
+const userRecentGamesSearch = async (user_id, game_group_id, pageSize, queryStr) => {
+    /*  CURSOR BASED PAGINATION
+        ref:
+            https://apisyouwonthate.com/blog/api-design-basics-pagination/
+            https://bool.dev/blog/detail/pagination-strategies
+            https://medium.com/@anshulkahar2211/smart-caching-strategies-for-api-pagination-and-filtering-with-redis-5cf6b0a63b0f
+    */
+    let page_size = pageSize * 1;    // convert to number
+    const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
+        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
+        games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
+        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
+        games.status = 3 and a.id > :game_group_id and games.name LIKE :searchPattern group by a.game_id, a.id limit :page_size`,
+        {
+            replacements: { user_id, game_group_id, page_size, searchPattern: `%${queryStr}%` },
+        }
+    );
+    return recentGamesResult;
 };
 
 const createGame = async (creator_id, game) => {
@@ -893,7 +922,8 @@ const generateGameCode = async () => {
 
 module.exports = {
     findOngoingRoundById,
-    rawFindOngoingRoundById,
+    userRecentGames,
+    userRecentGamesSearch,
     createGame,
     updateGame,
     updateGroupScores,
