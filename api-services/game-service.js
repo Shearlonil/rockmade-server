@@ -80,6 +80,65 @@ const findOngoingRoundById = async id => {
     }
 };
 
+const findRecentGameById = async id => {
+    const game = await Game.findOne({
+        where: { 
+            id,
+            status: 3
+        },
+        include: [
+            {
+                model: GameHoleContest,
+            },
+            {
+                model: GameHoleRecords,
+                include: [
+                    { model: HoleScores, },
+                    { model: HoleContestScores, },
+                ]
+            },
+            {
+                model: GameCodes,
+                attributes: ['join_code', 'view_code'],
+            },
+            {
+                model: User,
+                attributes: ['id', 'fname', 'lname', 'hcp'],
+                as: 'users',
+                include: {
+                    model: ImgKeyHash,
+                }
+            },
+        ]
+    });
+    if(game){
+        const course = await Course.findByPk(game.course_id,
+            { 
+                include: [
+                    {
+                        model: Hole,
+                        as: 'holes',
+                        include: [
+                            { 
+                                model: Contest,
+                                as: 'contests',
+                                through: {
+                                    where: {
+                                        course_id: game.course_id,
+                                    }
+                                },
+                            }
+                        ],
+                    },
+                ]
+            }
+        );
+        return {game, course};
+    }else {
+        throw new Error("Game not found");
+    }
+};
+
 const userRecentGames = async (user_id, game_group_id, pageSize) => {
     /*  CURSOR BASED PAGINATION
         ref:
@@ -198,7 +257,7 @@ const createGame = async (creator_id, game) => {
         }
     } catch (error) {
         if(error.name === 'SequelizeUniqueConstraintError'){
-            throw new Error(error.errors[0].value + " not available. Please use a different value");
+            throw new Error(error.errors[0].value + " not available. Please use a different name");
         }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -922,6 +981,7 @@ const generateGameCode = async () => {
 
 module.exports = {
     findOngoingRoundById,
+    findRecentGameById,
     userRecentGames,
     userRecentGamesSearch,
     createGame,

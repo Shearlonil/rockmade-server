@@ -28,6 +28,15 @@ const findOngoingRoundById = async (req, res) => {
     }
 };
 
+const findRecentGameById = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        res.status(200).json(await gameService.findRecentGameById(req.params.id));
+    } catch (error) {
+        return res.status(404).json({'message': error.message});
+    }
+};
+
 const userRecentGames = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
@@ -185,6 +194,7 @@ const updateGameSpices = async (req, res) => {
 };
 
 router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById );
+router.route('/rounds/recent/:id').get( verifyAccessToken, findRecentGameById );
 router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
 router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );
