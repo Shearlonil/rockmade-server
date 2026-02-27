@@ -26,8 +26,21 @@ const findById = async (req, res) => {
     }
 };
 
+const playerInfo = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        res.status(200).json(await clientService.playerInfo(req.params.id));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const dashboardInfo = async (req, res) => {
     try {
+        // setTimeout(async () => {
+        //     const id = decrypt(req.whom.id);
+        //     res.status(200).json(await clientService.dashboardInfo(id));
+        // }, 5000);
         const id = decrypt(req.whom.id);
         res.status(200).json(await clientService.dashboardInfo(id));
     } catch (error) {
@@ -308,7 +321,7 @@ router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.cl
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
-// router.route('/dp/:id').get( verifyAccessToken, downloadProfileImg );
+router.route('/dashboard/games/player/:id').get( verifyAccessToken, playerInfo );
 router.route('/dp/:filename').get( getImg );
 router.route('/query').get( verifyAccessToken, search );
 router.route('/game/query').get( verifyAccessToken, gameSearch );

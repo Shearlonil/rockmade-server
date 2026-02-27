@@ -23,7 +23,7 @@ const findActiveById = async id => {
         include: [
             {
                 model: Course,
-                where: { status : true },
+                // where: { status : true },
             },
             {
                 model: ImgKeyHash,
@@ -38,7 +38,7 @@ const findById = async id => {
         include: [
             {
                 model: Course,
-                where: { status : true },
+                // where: { status : true },
             },
             {
                 model: ImgKeyHash,
@@ -416,6 +416,47 @@ const dashboardInfo = async (id) => {
     return results[0];
 }
 
+const playerInfo = async (id) => {
+    // Home club data
+    const user = await User.findByPk(id, {
+        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+        include: [
+            {
+                model: Course,
+                // where: { status : true },
+            },
+            {
+                model: ImgKeyHash,
+            }
+        ]
+    });
+    if (user) {
+        // TODO: LAST 10 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
+        // Recent/last 5 games played
+        const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
+            `select distinct a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+            count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
+            b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id limit 10`,
+            {
+                replacements: { id },
+            }
+        );
+        // Courses and number of games played
+        const [results, metadata] = await db.sequelize.query(
+            `select count(distinct course_id) as courses_played, count(distinct game_id) as games_played from 
+            user_game_group join games on user_game_group.game_id = games.id where user_id = :id and games.status = 3`,
+            {
+                replacements: { id },
+            }
+        );
+        results[0].recent_games = recentGamesResult;
+        results[0].user = user;
+        return results[0];
+    }else{
+        throw new Error("User not found");
+    }
+}
+
 const search = async (prop) => {
     const { str, status } = prop;
     const s = JSON.parse(status);
@@ -535,6 +576,7 @@ module.exports = {
     resetPassword,
     changePassword,
     dashboardInfo,
+    playerInfo,
     listClients,
     changeClientStatus,
     search,
