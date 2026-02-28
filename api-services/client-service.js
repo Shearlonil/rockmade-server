@@ -395,9 +395,9 @@ const dashboardInfo = async (id) => {
     // TODO: LAST 5 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
     // Recent/last 5 games played
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-        `select distinct a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
         count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
-        b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id limit 5`,
+        b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id, a.id ORDER BY a.id DESC limit 5`,
         {
             replacements: { id },
         }
@@ -434,9 +434,9 @@ const playerInfo = async (id) => {
         // TODO: LAST 10 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
         // Recent/last 5 games played
         const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-            `select distinct a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+            `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
             count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
-            b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id limit 10`,
+            b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id, a.id ORDER BY a.id DESC limit 10`,
             {
                 replacements: { id },
             }

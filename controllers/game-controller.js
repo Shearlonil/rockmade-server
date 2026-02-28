@@ -37,26 +37,26 @@ const findRecentGameById = async (req, res) => {
     }
 };
 
-const userRecentGames = async (req, res) => {
+const userHistoryGames = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
         routePositiveNumberMiscParamSchema.validateSync(req.query.player_id);
         routeStringMiscParamSchema.validateSync(req.query.cursor);
         const game_group_id = decrypt(req.query.cursor);
-        res.status(200).json(await gameService.userRecentGames(req.query.player_id, game_group_id, req.query.page_size));
+        res.status(200).json(await gameService.userHistoryGames(req.query.player_id, game_group_id, req.query.page_size));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
 };
 
-const userRecentGamesSearch = async (req, res) => {
+const userHistoryGamesSearch = async (req, res) => {
     try {
         routeStringMiscParamSchema.validateSync(req.query.queryStr);
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
         routeStringMiscParamSchema.validateSync(req.query.cursor);
-        const id = decrypt(req.whom.id);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.player_id);
         const game_group_id = decrypt(req.query.cursor);
-        res.status(200).json(await gameService.userRecentGamesSearch(id, game_group_id, req.query.page_size, req.query.queryStr));
+        res.status(200).json(await gameService.userHistoryGamesSearch(req.query.player_id, game_group_id, req.query.page_size, req.query.queryStr));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -110,7 +110,7 @@ const addPlayers = async (req, res) => {
         if(isAfter(new Date(), new Date(client.sub_expiration).setHours(23, 59, 59, 0))){
             throw new Error("Account doesn't support feature. Please subscribe");
         }
-        res.status(200).json(await gameService.addPlayers(id, req.body));
+        res.status(200).json(await gameService.addPlayers(req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -200,8 +200,8 @@ router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(p
 router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );
 router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
 router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
-router.route('/users/rounds/history').get( verifyAccessToken, userRecentGames );
-router.route('/users/rounds/history/query').get( verifyAccessToken, userRecentGamesSearch );
+router.route('/users/rounds/history').get( verifyAccessToken, userHistoryGames );
+router.route('/users/rounds/history/query').get( verifyAccessToken, userHistoryGamesSearch );
 router.route('/create').post( verifyAccessToken, validate(schema), createGame );
 router.route('/update').post( verifyAccessToken, validate(updateSchema), updateGame );
 router.route('/:id/remove').post( verifyAccessToken, delOngoingRound );

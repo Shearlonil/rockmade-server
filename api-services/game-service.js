@@ -139,7 +139,7 @@ const findRecentGameById = async id => {
     }
 };
 
-const userRecentGames = async (user_id, game_group_id, pageSize) => {
+const userHistoryGames = async (user_id, game_group_id, pageSize) => {
     /*  CURSOR BASED PAGINATION
         ref:
             https://apisyouwonthate.com/blog/api-design-basics-pagination/
@@ -152,7 +152,7 @@ const userRecentGames = async (user_id, game_group_id, pageSize) => {
         `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
         games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
         a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
-        games.status = 3 and a.id > :game_group_id group by a.game_id, a.id ORDER BY a.id limit :page_size`,
+        games.status = 3 and a.id < :game_group_id group by a.game_id, a.id ORDER BY a.id DESC limit :page_size`,
         {
             replacements: { user_id, game_group_id, page_size },
         }
@@ -160,7 +160,7 @@ const userRecentGames = async (user_id, game_group_id, pageSize) => {
     return recentGamesResult;
 };
 
-const userRecentGamesSearch = async (user_id, game_group_id, pageSize, queryStr) => {
+const userHistoryGamesSearch = async (user_id, game_group_id, pageSize, queryStr) => {
     /*  CURSOR BASED PAGINATION
         ref:
             https://apisyouwonthate.com/blog/api-design-basics-pagination/
@@ -172,7 +172,7 @@ const userRecentGamesSearch = async (user_id, game_group_id, pageSize, queryStr)
         `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
         games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
         a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
-        games.status = 3 and a.id > :game_group_id and games.name LIKE :searchPattern group by a.game_id, a.id limit :page_size`,
+        games.status = 3 and a.id < :game_group_id and games.name LIKE :searchPattern group by a.game_id, a.id ORDER BY a.id DESC limit :page_size`,
         {
             replacements: { user_id, game_group_id, page_size, searchPattern: `%${queryStr}%` },
         }
@@ -219,11 +219,15 @@ const createGame = async (creator_id, game) => {
                         );
                     }
                 }
+                const user = await User.findByPk(creator_id, {
+                    attributes: ['id', 'hcp', ],
+                });
                 await UserGameGroup.create({
                     name: "1",
                     round_no: 1,
                     start_time: format(startDate, "yyyy-MM-dd HH:mm:ss"),
                     user_id: creator_id,
+                    user_hcp: user.hcp,
                     game_id: game.id
                 }, { transaction: t });
                 // generate game codes
@@ -700,7 +704,7 @@ const delOngoingRound = async (creator_id, game_id) => {
     }
 };
 
-const addPlayers = async (creator_id, prop) => {
+const addPlayers = async (prop) => {
     const { game_id, currentGroupSize, players, groupProp } = prop;
     try {
         if(currentGroupSize < 2 || currentGroupSize > 5){
@@ -730,14 +734,21 @@ const addPlayers = async (creator_id, prop) => {
             }
             await db.sequelize.transaction( async (t) => {
                 for (const player of players) {
-                    await UserGameGroup.create({
-                        name: groupProp.group_name,
-                        round_no: groupProp.round_no,
-                        start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
-                        user_id: player,
-                        game_id: game.id
-                    },
-                    { transaction: t })
+                    const user = await User.findByPk(player, {
+                        attributes: ['id', 'hcp', ],
+                    });
+                    if(user){
+                        await UserGameGroup.create({
+                            name: groupProp.group_name,
+                            round_no: groupProp.round_no,
+                            start_time: format(new Date(), "yyyy-MM-dd HH:mm:ss"),
+                            user_id: player,
+                            user_hcp: user.hcp,
+                            game_id: game.id
+                        },  { transaction: t })
+                    }else {
+                        throw new Error("User not found");
+                    }
                 }
                 game.group_size = currentGroupSize;
                 await game.save({ transaction: t });
@@ -982,8 +993,8 @@ const generateGameCode = async () => {
 module.exports = {
     findOngoingRoundById,
     findRecentGameById,
-    userRecentGames,
-    userRecentGamesSearch,
+    userHistoryGames,
+    userHistoryGamesSearch,
     createGame,
     updateGame,
     updateGroupScores,
