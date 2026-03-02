@@ -17,4 +17,11 @@ const schema = yup.object().shape({
     authorities: yup.array(),
 });
 
-module.exports = schema;
+const personal_info_schema = yup.object().shape({
+    fname: yup.string().required("First Name is required"),
+    lname: yup.string().required("Last Name is required"),
+    phone: yup.number().typeError("Must be a number").required("Phone number is required"),
+    sex: yup.string().max(1).required("Gender is required!"),
+});
+
+module.exports = { schema, personal_info_schema };

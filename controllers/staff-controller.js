@@ -10,9 +10,9 @@ const { verifyAccessToken, createStaffAccessToken } = require('../middleware/jwt
 const { generateOTP } = require('../utils/otp-generator');
 const staffService = require('../api-services/staff-service');
 const mailOtpService = require('../api-services/mail-otp-service');
-const schema = require('../yup-schemas/staff-schema');
+const { schema, personal_info_schema } = require('../yup-schemas/staff-schema');
 const { routeEmailParamSchema, routeStringMiscParamSchema, routePasswordParamSchema, routePositiveNumberMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
-const { decrypt } = require('../utils/crypto-helper');
+const { encrypt, decrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
     try {
@@ -41,18 +41,49 @@ const findByEmail = async (req, res) => {
     }
 };
 
+const dashboardInfo = async (req, res) => {
+    try {
+        // client not allowed to view staff dashboard
+        if(req.whom.type){
+            res.sendStatus(403);
+        }else {
+            res.status(200).json(await staffService.dashboardInfo());
+        }
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const myProfile = async (req, res) => {
     try {
         // client not allowed to view staff profile
         if(req.whom.type){
             res.sendStatus(403);
         }else {
-            res.status(200).json(await staffService.findById(req.whom.id));
+            const id = decrypt(req.whom.id);
+            res.status(200).json(await staffService.findById(id));
         }
     } catch (error) {
         res.status(400).json({'message': error.message});
     }
 };
+
+const updatePersonalInfo = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        const updatedStaff = await staffService.updatePersonalInfo(id, req.body);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        updatedStaff.mode = encrypt('0');
+        // create jwt access token
+        const accessToken = createStaffAccessToken(updatedStaff);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
 
 const findAll = async (req, res) => {
     try {
@@ -128,7 +159,8 @@ const registerStaff = async (req, res) => {
         const oneTimePass = generateOTP(6);
         req.body.pw = oneTimePass;
         // create staff account
-        const staff = await staffService.register(req.body, req.whom.id);
+        const id = decrypt(req.whom.id);
+        const staff = await staffService.register(req.body, id);
 
         const transporter = nodemailer.createTransport({
             host: process.env.MAIL_SERVICE_HOST,
@@ -164,8 +196,9 @@ const registerStaff = async (req, res) => {
 
 const update = async (req, res) => {
     try {
+        const id = decrypt(req.whom.id);
         // find staff from db using id in request parameter
-        const staff = await staffService.findById(req.whom.id);
+        const staff = await staffService.findById(id);
         if(!staff) {
             return res.status(400).json({'message': "Not Found"});
         }
@@ -185,25 +218,9 @@ const update = async (req, res) => {
 
 const updatePassword = async (req, res) => {
     try {
-        const current_pw = req.body.current_pw;
-        const new_pw = req.body.new_pw;
         // First thing First: validate current and new passwords in request body
-        routePasswordParamSchema.validateSync(current_pw);
-        routePasswordParamSchema.validateSync(new_pw);
-        // find staff from db using id in request parameter
-        const staff = await staffService.findForPassWord(req.whom.id);
-        if(!staff) {
-            return res.status(400).json({'message': "Profile not Found"});
-        }
-        // check if current password is correct
-        // if match, then compare password
-        const match = await bcrypt.compare(current_pw, staff.pw);
-        if(match) {
-            await staffService.updatePassword(req.whom.id, new_pw);
-            res.status(200).json({'message': 'Password update successful'});
-        }else {
-            res.status(401).json({'message': 'Invalid password'});
-        }
+        routePasswordParamSchema.validateSync(req.body.pw);
+        await staffService.updatePassword(req.whom.id, req.body);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -327,7 +344,7 @@ router.route('/unverified-mails/clear').get( verifyAccessToken, preAuthorize(aut
 router.route('/unverified-mails/remove/:email').get( verifyAccessToken, preAuthorize(authorities.viewClients.code), removeUnverifiedMail );
 router.route('/active-staff').get( verifyAccessToken, countActiveStaff );
 router.route('/update').put( verifyAccessToken, validate(schema), update );
-router.route('/update-pw').put( verifyAccessToken, updatePassword );
+router.route('/profile/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/reset-pw').put( resetPassword );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.activateDeactiveteAccount.code), status );
 router.route('/search/page/:pageNumber').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), paginateFetch );
@@ -335,7 +352,9 @@ router.route('/query').get( verifyAccessToken, preAuthorize(authorities.viewStaf
 router.route('/all').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), findAll );
 router.route('/roles/update').put( verifyAccessToken, preAuthorize(authorities.updateStaffRoles.code), updateStaffRoles );
 router.route('/search').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByEmail );
+router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
 router.route('/profile').get( verifyAccessToken, myProfile );
+router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findById );
 router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByIdWithAuths );
 router.route('/active/init/:pageSize').get( verifyAccessToken, activeStaffPageInit );

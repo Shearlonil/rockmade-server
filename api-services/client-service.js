@@ -392,7 +392,6 @@ const dashboardInfo = async (id) => {
             replacements: { id },
         }
     );
-    // TODO: LAST 5 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
     // Recent/last 5 games played
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
         `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
@@ -414,6 +413,18 @@ const dashboardInfo = async (id) => {
     results[0].ongoing_rounds = ongoingRoundsResult;
     results[0].recent_games = recentGamesResult;
     return results[0];
+}
+
+const playedCourses = async (id) => {
+    // Courses played
+    const [results, metadata] = await db.sequelize.query(
+        `select c.name, c.no_of_holes, c.location, sum(ch.par) as par from user_game_group join games on user_game_group.game_id = games.id join courses c on 
+        games.course_id = c.id join course_holes ch on ch.course_id = c.id where user_id = :id and games.status = 3 group by c.id;`,
+        {
+            replacements: { id },
+        }
+    );
+    return results;
 }
 
 const playerInfo = async (id) => {
@@ -575,6 +586,7 @@ module.exports = {
     updatePassword,
     resetPassword,
     changePassword,
+    playedCourses,
     dashboardInfo,
     playerInfo,
     listClients,

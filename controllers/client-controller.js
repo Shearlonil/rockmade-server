@@ -14,13 +14,22 @@ const schema = require('../yup-schemas/user-schema');
 const { personal_info_schema, pw_schema, hcp_schema, email_schema } = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.params.id);
         res.status(200).json(await clientService.findById(req.params.id));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const playedCourses = async (req, res) => {
+    try {
+        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
+        res.status(200).json(await clientService.playedCourses(req.params.id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -143,8 +152,8 @@ const updateHomeClub = async (req, res) => {
 
 const updateHCP = async (req, res) => {
     try {
-        // First thing First: validate hcp in request body
         const id = decrypt(req.whom.id);
+        // First thing First: validate hcp in request body
         const updatedClient = await clientService.updateHCP(id, req.body.hcp);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
         updatedClient.mode = encrypt('1');
@@ -169,7 +178,8 @@ const updateEmail = async (req, res) => {
             if(clientObj.decodedOTP !== clientObj.otp){
                 return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
             }
-            const client = await clientService.updateEmail(req.whom.id, req.body.email);
+            const id = decrypt(req.whom.id);
+            const client = await clientService.updateEmail(id, req.body.email);
             // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
             client.mode = encrypt('1');
             // create jwt refresh token
@@ -220,7 +230,10 @@ const dpUpload = async (req, res) => {
 
 const updatePassword = async (req, res) => {
     try {
-        await clientService.updatePassword(req.whom.id, req.body);
+        // First thing First: validate current and new passwords in request body
+        routePasswordParamSchema.validateSync(req.body.pw);
+        const id = decrypt(req.whom.id);
+        await clientService.updatePassword(id, req.body);
         res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
@@ -322,6 +335,7 @@ router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.cli
 router.route('/profile').get( verifyAccessToken, myProfile );
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
 router.route('/dashboard/games/player/:id').get( verifyAccessToken, playerInfo );
+router.route('/courses/played/:id').get( verifyAccessToken, playedCourses );
 router.route('/dp/:filename').get( getImg );
 router.route('/query').get( verifyAccessToken, search );
 router.route('/game/query').get( verifyAccessToken, gameSearch );

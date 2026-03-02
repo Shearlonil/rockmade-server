@@ -80,7 +80,7 @@ const findOngoingRoundById = async id => {
     }
 };
 
-const findRecentGameById = async id => {
+const findGameHistoryById = async id => {
     const game = await Game.findOne({
         where: { 
             id,
@@ -992,7 +992,7 @@ const generateGameCode = async () => {
 
 module.exports = {
     findOngoingRoundById,
-    findRecentGameById,
+    findGameHistoryById,
     userHistoryGames,
     userHistoryGamesSearch,
     createGame,

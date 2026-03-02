@@ -1,6 +1,7 @@
 const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
 const bcrypt = require('bcryptjs');
+const { format } = require('date-fns');
 
 const otpMailService = require('./mail-otp-service');
 const { generateOTP } = require('../utils/otp-generator');
@@ -39,6 +40,65 @@ const findByEmail = async email => {
             model: Authority,
         }
     });
+};
+
+const dashboardInfo = async () => {
+    const currentDate = format(new Date(), "yyyy-MM-dd");
+    // total users
+    const [totalUsersResult, totalUsersMetadata] = await db.sequelize.query(`select count(users.id) as total_users from users`);
+    // total subscribed users
+    const [subscribedUsersResult, subscribedUsersMetadata] = await db.sequelize.query(
+        `select count(users.id) as sub_users from users where sub_expiration >= :currentDate`,
+        {
+            replacements: { currentDate },
+        }
+    );
+    // total active golf courses
+    const [activeCoursesResult, activeCoursesMetadata] = await db.sequelize.query(`select count(courses.id) as total_courses from courses where courses.status = true`);
+    // top 5 most played courses
+    const [topPlayedCoursesResult, topPlayedCoursesMetadata] = await db.sequelize.query(
+        `select count(games.course_id) as occurence, courses.name from courses join games on games.course_id = courses.id group by games.course_id 
+        order by occurence desc limit 5`);
+    // total contests
+    const [results, metadata] = await db.sequelize.query(`select count(contests.id) as total_contests from contests`);
+    results[0].total_users = totalUsersResult[0];
+    results[0].sub_users = subscribedUsersResult[0];
+    results[0].active_courses = activeCoursesResult[0];
+    results[0].top_courses = topPlayedCoursesResult;
+    return results[0];
+}
+
+const updatePersonalInfo = async (id, profile) => {
+    const { fname, lname, phone, sex } = profile;
+    const f_name = fname.trim();
+    const l_name = lname.trim();
+    // find client to use in sequelize transaction and setter for industries (ManyToMany) below
+    const staff = await Staff.findOne({
+        where: { status: true, id },
+    });
+    try {
+        await db.sequelize.transaction( async (t) => {
+            await staff.update({ fname: f_name, lname: l_name, phone, sex }, {
+                where: { id },
+                returning: true,
+                transaction: t
+            });
+        });
+        // fetch updated staff and return
+        return await Staff.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
+            include: [
+                {
+                    model: Authority,
+                },
+            ]
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
 };
 
 const paginateFetch = async (prop) => {
@@ -161,13 +221,27 @@ const findForPassWord = async id => {
     return await Staff.findByPk(id);
 };
 
-const updatePassword = async (id, newPass) => {
-    // encrypt password
-    const hashedPwd = await bcrypt.hash(newPass, 12);
-    await Staff.update({ pw: hashedPwd }, {
-        where: { id },
-        returning: true,
+const updatePassword = async (id, data) => {
+    const { pw, current_pw } = data;
+    // find client from db using id in request parameter
+    const staff = await Staff.findOne({
+        where: { status: true, id },
     });
+    if(!staff) {
+        throw new Error("Invalid operation");
+    }
+    // check if current password is correct
+    // if match, then compare password
+    const match = await bcrypt.compare(decrypt(current_pw), staff.pw);
+    if(match) {
+        // encrypt password
+        const hashedPwd = await bcrypt.hash(decrypt(pw), 12);
+        await staff.update({ pw: hashedPwd }, {
+            where: { id },
+        });
+    }else {
+        throw new Error("Invalid password");
+    }
 };
 
 const resetPassword = async (data) => {
@@ -223,6 +297,7 @@ module.exports = {
     findByIdWithAuths,
     deleteAccount,
     findByEmail,
+    dashboardInfo,
     updateAuthorities,
     register,
     update,
@@ -235,6 +310,7 @@ module.exports = {
     countActiveStaff,
     getAuthorities,
     activeStaffPageInit,
+    updatePersonalInfo,
     paginateFetch,
     search,
 };
