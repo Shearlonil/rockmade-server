@@ -5,16 +5,15 @@ const { format } = require('date-fns');
 
 const otpMailService = require('./mail-otp-service');
 const { generateOTP } = require('../utils/otp-generator');
+const { decrypt } = require('../utils/crypto-helper');
 
 const Staff = db.staff;
 const Authority = db.staffAuths;
+const MailOTP = db.mailOTP;
 
 const findById = async id => {
     return await Staff.findByPk(id, {
         attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
-        include: {
-            model: Authority,
-        }
     });
 };
 
@@ -30,7 +29,8 @@ const findByIdWithAuths = async id => {
     });
     // attach creator to dataValues. Only place to attach extra data, else it won't be received on the frontend
     staff.dataValues.creator = creator;
-    return staff;
+    const all_auths = await getAuthorities();
+    return { staff, all_auths };
 };
 
 const findByEmail = async email => {
@@ -203,23 +203,38 @@ const deleteAccount = async (email) => {
     } );
 };
 
-const update = async (id, profile) => {
-    const { fname, lname, email, sex, phone } = profile;
-    const f_name = fname.trim();
-    const l_name = lname.trim();
+const updateEmail = async (id, email) => {
     const mail = email.trim();
-    await Staff.update({ fname: f_name, lname: l_name, email: mail, sex, phone }, {
-        where: { id },
-        returning: true,
-    });
-    // fetch updated staff and return
-    return await findById(id);
-};
-
-// only useful for updating password
-const findForPassWord = async id => {
-    return await Staff.findByPk(id);
-};
+    // find client from db using id in request parameter
+    const client = await Staff.findOne({ where: {status: true, id} });
+    if(!client) {
+        throw new Error("Account Not Found");
+    }
+    try {
+        await db.sequelize.transaction( async (t) => {
+            await Staff.update({ email: mail }, {
+                where: { id },
+                returning: true,
+                transaction: t
+            });
+            // delete mail_otp assiciated with email
+            await MailOTP.destroy({ where: { email } }, { transaction: t });
+        });
+        return await Staff.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
+            include: [
+                {
+                    model: Authority,
+                },
+            ]
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
 
 const updatePassword = async (id, data) => {
     const { pw, current_pw } = data;
@@ -236,7 +251,7 @@ const updatePassword = async (id, data) => {
     if(match) {
         // encrypt password
         const hashedPwd = await bcrypt.hash(decrypt(pw), 12);
-        await staff.update({ pw: hashedPwd }, {
+        await Staff.update({ pw: hashedPwd }, {
             where: { id },
         });
     }else {
@@ -300,8 +315,7 @@ module.exports = {
     dashboardInfo,
     updateAuthorities,
     register,
-    update,
-    findForPassWord,
+    updateEmail,
     updatePassword,
     resetPassword,
     findAll,

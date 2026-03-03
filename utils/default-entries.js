@@ -38,6 +38,11 @@ module.exports = {
             code: 104,
             desc: "Search Staff by ID or Email",
         },
+        viewStaffProfile: {
+            name: "View Staff Profile/Auths",
+            code: 105,
+            desc: "View registered staff profile/auths",
+        },
         createCourse: {
             name: "Add Golf Courses",
             code: 200,

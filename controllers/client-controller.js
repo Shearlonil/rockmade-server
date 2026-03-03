@@ -231,7 +231,7 @@ const dpUpload = async (req, res) => {
 const updatePassword = async (req, res) => {
     try {
         // First thing First: validate current and new passwords in request body
-        routePasswordParamSchema.validateSync(req.body.pw);
+        routePasswordParamSchema.validateSync(decrypt(req.body.pw));
         const id = decrypt(req.whom.id);
         await clientService.updatePassword(id, req.body);
         res.sendStatus(200);

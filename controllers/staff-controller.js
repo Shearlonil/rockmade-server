@@ -6,11 +6,12 @@ const nodemailer = require("nodemailer");
 const validate = require('../middleware/schemer-validator');
 const { authorities } = require('../utils/default-entries');
 const preAuthorize = require('../middleware/verify-authorities');
-const { verifyAccessToken, createStaffAccessToken } = require('../middleware/jwt');
+const { verifyAccessToken, createStaffAccessToken, verifyOTPtoken, createRefreshToken } = require('../middleware/jwt');
 const { generateOTP } = require('../utils/otp-generator');
 const staffService = require('../api-services/staff-service');
 const mailOtpService = require('../api-services/mail-otp-service');
 const { schema, personal_info_schema } = require('../yup-schemas/staff-schema');
+const { email_schema } = require('../yup-schemas/user-update-schema');
 const { routeEmailParamSchema, routeStringMiscParamSchema, routePasswordParamSchema, routePositiveNumberMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
 
@@ -54,20 +55,6 @@ const dashboardInfo = async (req, res) => {
     }
 };
 
-const myProfile = async (req, res) => {
-    try {
-        // client not allowed to view staff profile
-        if(req.whom.type){
-            res.sendStatus(403);
-        }else {
-            const id = decrypt(req.whom.id);
-            res.status(200).json(await staffService.findById(id));
-        }
-    } catch (error) {
-        res.status(400).json({'message': error.message});
-    }
-};
-
 const updatePersonalInfo = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
@@ -84,6 +71,37 @@ const updatePersonalInfo = async (req, res) => {
         return res.status(400).json({'message': error.message});
     }
 }
+
+const updateEmail = async (req, res) => {
+    try {
+        const mail_otp = await mailOtpService.findByEmail(req.body.email);
+        if(mail_otp){
+            const staffObj = req.body;
+            verifyOTPtoken(staffObj, mail_otp.otp);
+            // check if submitted otp is same as db otp
+            if(staffObj.decodedOTP !== staffObj.otp){
+                return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
+            }
+            const id = decrypt(req.whom.id);
+            const staff = await staffService.updateEmail(id, req.body.email);
+            // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+            staff.mode = encrypt('0');
+            // create jwt refresh token
+            const refreshToken = createRefreshToken(staff);
+            res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+            // create jwt access token
+            const accessToken = createStaffAccessToken(staff);
+            //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+            res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+            res.setHeader('authorization', 'Bearer ' + accessToken);
+            res.sendStatus(200);
+        }else {
+            res.status(400).json({'message': "No associated mail found with otp."});
+        } 
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
 
 const findAll = async (req, res) => {
     try {
@@ -117,7 +135,8 @@ const paginateFetch = async (req, res) => {
 const updateStaffRoles = async (req, res) => {
     // endpoint will receive an array of roles in number format
     try {
-        if(req.whom.id === req.body.id){
+        const id = decrypt(req.whom.id);
+        if(id === req.body.id){
             // account cannot edit itself
             return res.sendStatus(404);
         }
@@ -138,9 +157,10 @@ const updateStaffRoles = async (req, res) => {
 const status = async (req, res) => {
     // endpoint will receive an object of form {staff_id, status}.
     try {
+        const id = decrypt(req.whom.id);
         routePositiveNumberMiscParamSchema.validateSync(req.body.id);
         routeBooleanParamSchema.validateSync(req.body.status);
-        if(req.whom.id === req.body.id){
+        if(id == req.body.id){
             // can't delete yourself
             return res.sendStatus(404);
         }
@@ -194,33 +214,13 @@ const registerStaff = async (req, res) => {
     }
 };
 
-const update = async (req, res) => {
-    try {
-        const id = decrypt(req.whom.id);
-        // find staff from db using id in request parameter
-        const staff = await staffService.findById(id);
-        if(!staff) {
-            return res.status(400).json({'message': "Not Found"});
-        }
-
-        const updatedStaff = await staffService.update(req.whom.id, req.body);
-        // create jwt access token
-        const accessToken = createStaffAccessToken(updatedStaff);
-        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
-        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-        res.setHeader('authorization', 'Bearer ' + accessToken);
-        res.status(200).json({'message': 'Account update successful'});
-    } catch (error) {
-        cleanUpFileUpload(req.file);
-        return res.status(400).json({'message': error.message});
-    }
-};
-
 const updatePassword = async (req, res) => {
     try {
         // First thing First: validate current and new passwords in request body
-        routePasswordParamSchema.validateSync(req.body.pw);
-        await staffService.updatePassword(req.whom.id, req.body);
+        routePasswordParamSchema.validateSync(decrypt(req.body.pw));
+        const id = decrypt(req.whom.id);
+        await staffService.updatePassword(id, req.body);
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -343,8 +343,6 @@ router.route('/unverified-mails/view').get( verifyAccessToken, preAuthorize(auth
 router.route('/unverified-mails/clear').get( verifyAccessToken, preAuthorize(authorities.viewClients.code), clearAllUnverifiedMails );
 router.route('/unverified-mails/remove/:email').get( verifyAccessToken, preAuthorize(authorities.viewClients.code), removeUnverifiedMail );
 router.route('/active-staff').get( verifyAccessToken, countActiveStaff );
-router.route('/update').put( verifyAccessToken, validate(schema), update );
-router.route('/profile/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/reset-pw').put( resetPassword );
 router.route('/status').put( verifyAccessToken, preAuthorize(authorities.activateDeactiveteAccount.code), status );
 router.route('/search/page/:pageNumber').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), paginateFetch );
@@ -353,10 +351,11 @@ router.route('/all').get( verifyAccessToken, preAuthorize(authorities.viewStaff.
 router.route('/roles/update').put( verifyAccessToken, preAuthorize(authorities.updateStaffRoles.code), updateStaffRoles );
 router.route('/search').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByEmail );
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
-router.route('/profile').get( verifyAccessToken, myProfile );
+router.route('/profile/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
+router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), updateEmail );
+router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.viewStaffProfile.code), findByIdWithAuths );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findById );
-router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findByIdWithAuths );
-router.route('/active/init/:pageSize').get( verifyAccessToken, activeStaffPageInit );
+router.route('/active/init/:pageSize').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), activeStaffPageInit );
 
 module.exports = router;

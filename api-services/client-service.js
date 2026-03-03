@@ -376,6 +376,13 @@ const changePassword = async (id, profile) => {
 
 const dashboardInfo = async (id) => {
     // Home club data
+    const [hcPlayersResult, hcPlayersMetadata] = await db.sequelize.query(
+        `select count(u.id) as players from users u where u.course_id = (select course_id from users where users.id = :id)`,
+        {
+            replacements: { id },
+        }
+    );
+    // Home club data
     const [hcResult, hcMetadata] = await db.sequelize.query(
         `select c.id, c.name, c.no_of_holes, u.id as user_id, u.course_id from courses c join users u on 
         u.course_id = c.id and u.id = :id`,
@@ -412,6 +419,7 @@ const dashboardInfo = async (id) => {
     results[0].home_club = hcResult[0];
     results[0].ongoing_rounds = ongoingRoundsResult;
     results[0].recent_games = recentGamesResult;
+    results[0].hc_players = hcPlayersResult[0].players;
     return results[0];
 }
 
