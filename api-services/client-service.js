@@ -476,6 +476,131 @@ const playerInfo = async (id) => {
     }
 }
 
+// for use by players to search other players
+const playerSearch = async (id, hc, cursor, page_size) => {
+    let pageSize = page_size * 1;
+    if(hc === true || hc === 'true'){
+        // search players in same home club as signed in user
+        return await User.findAll({
+            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            where: { 
+                status: true,
+                id: {
+                    [Op.gt]: cursor
+                },
+                course_id: {
+                    [Op.eq]: db.sequelize.literal(`(select course_id from users where users.id = ${id})`)
+                },
+            },
+            include: [
+                {
+                    model: ImgKeyHash,
+                },
+                {
+                    model: Course,
+                    attributes: ['id', 'name' ],
+                    where: { status : true },
+                },
+            ],
+            limit: pageSize,
+            order: [['id', 'ASC']]
+        });
+    }else {
+        return await User.findAll({
+            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            where: { 
+                status: true,
+                id: {
+                    [Op.gt]: cursor
+                },
+            },
+            include: [
+                {
+                    model: ImgKeyHash,
+                },
+                {
+                    model: Course,
+                    attributes: ['id', 'name' ],
+                    where: { status : true },
+                },
+            ],
+            limit: pageSize,
+            order: [['id', 'ASC']]
+        });
+    }
+}
+
+// for use by players to search other players
+const playerQryStrSearch = async (id, hc, cursor, page_size, queryStr) => {
+    let pageSize = page_size * 1;
+    if(hc === true || hc === 'true'){
+        // search players in same home club as signed in user
+        return await User.findAll({
+            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            where: { 
+                status: true,
+                id: {
+                    [Op.gt]: cursor
+                },
+                course_id: {
+                    [Op.eq]: db.sequelize.literal(`(select course_id from users where users.id = ${id})`)
+                },
+                [Op.or]: {
+                    fname: {
+                        [Op.like]: `%${queryStr}%`
+                    },
+                    lname: {
+                        [Op.like]: `%${queryStr}%`
+                    }
+                },
+            },
+            include: [
+                {
+                    model: ImgKeyHash,
+                },
+                {
+                    model: Course,
+                    attributes: ['id', 'name' ],
+                    where: { status : true },
+                },
+            ],
+            limit: pageSize,
+            order: [['id', 'ASC']]
+        });
+    }else {
+        return await User.findAll({
+            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            where: { 
+                status: true,
+                id: {
+                    [Op.gt]: cursor
+                },
+                [Op.or]: {
+                    fname: {
+                        [Op.like]: `%${queryStr}%`
+                    },
+                    lname: {
+                        [Op.like]: `%${queryStr}%`
+                    }
+                },
+            },
+            include: [
+                {
+                    model: ImgKeyHash,
+                },
+                {
+                    model: Course,
+                    attributes: ['id', 'name' ],
+                    where: { status : true },
+                },
+            ],
+            limit: pageSize,
+            order: [['id', 'ASC']]
+        });
+    }
+}
+
+// for use by admin to search players
 const search = async (prop) => {
     const { str, status } = prop;
     const s = JSON.parse(status);
@@ -600,5 +725,7 @@ module.exports = {
     listClients,
     changeClientStatus,
     search,
+    playerSearch, 
+    playerQryStrSearch,
     gameSearch,
 };

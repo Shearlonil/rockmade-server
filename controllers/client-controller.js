@@ -14,7 +14,7 @@ const schema = require('../yup-schemas/user-schema');
 const { personal_info_schema, pw_schema, hcp_schema, email_schema } = require('../yup-schemas/user-update-schema');
 const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
-const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
+const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema, routePasswordParamSchema, } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
 
 const findById = async (req, res) => {
@@ -277,6 +277,36 @@ const resetPassword = async (req, res) => {
     }
 }
 
+// for use by players to search other players
+const playerSearch = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
+        routeBooleanParamSchema.validateSync(req.query.hc);
+        routeStringMiscParamSchema.validateSync(req.query.cursor);
+        const player_id = decrypt(req.query.cursor);
+        res.status(200).json( await clientService.playerSearch(id, req.query.hc, player_id, req.query.page_size) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+// for use by players to search other players using name query string
+const playerQryStrSearch = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
+        routeBooleanParamSchema.validateSync(req.query.hc);
+        routeStringMiscParamSchema.validateSync(req.query.cursor);
+        routeStringMiscParamSchema.validateSync(req.query.queryStr);
+        const player_id = decrypt(req.query.cursor);
+        res.status(200).json( await clientService.playerQryStrSearch(id, req.query.hc, player_id, req.query.page_size, req.query.queryStr) );
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
+// for use by admin to search players
 const search = async (req, res) => {
     try {
         routeStringMiscParamSchema.validateSync(req.query.str);
@@ -338,6 +368,8 @@ router.route('/dashboard/games/player/:id').get( verifyAccessToken, playerInfo )
 router.route('/courses/played/:id').get( verifyAccessToken, playedCourses );
 router.route('/dp/:filename').get( getImg );
 router.route('/query').get( verifyAccessToken, search );
+router.route('/players').get( verifyAccessToken, playerSearch );
+router.route('/players/query').get( verifyAccessToken, playerQryStrSearch );
 router.route('/game/query').get( verifyAccessToken, gameSearch );
 
 module.exports = router;
