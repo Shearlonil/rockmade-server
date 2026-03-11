@@ -21,8 +21,9 @@ const findById = async (req, res) => {
 
 const create = async (req, res) => {
     try {
+        const id = decrypt(req.whom.id);
         routeStringMiscParamSchema.validateSync(req.params.name);
-        res.status(200).json(await contestService.create(req.whom.id, req.params.name));
+        res.status(200).json(await contestService.create(id, req.params.name));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }

@@ -10,8 +10,9 @@ const { routeStringMiscParamSchema, routePositiveNumberMiscParamSchema, routeBoo
 
 const create = async (req, res) => {
     try {
+        const id = decrypt(req.whom.id);
         routeStringMiscParamSchema.validateSync(req.params.name);
-        await countryService.create(req.whom.id, req.params.name);
+        await countryService.create(id, req.params.name);
         res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});

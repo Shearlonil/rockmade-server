@@ -99,6 +99,7 @@ const createGolfCourse = async (creator_id, course) => {
             throw new Error("Invalid number of holes specified");
         }
     } catch (error) {
+        console.log(error);
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 

@@ -12,7 +12,8 @@ const { decrypt } = require('../utils/crypto-helper');
 
 const createGolfCourse = async (req, res) => {
     try {
-        await courseService.createGolfCourse(req.whom.id, req.body);
+        const id = decrypt(req.whom.id);
+        await courseService.createGolfCourse(id, req.body);
         res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});

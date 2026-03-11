@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const { subDays, format } = require('date-fns');
+const { subDays, addDays, format } = require('date-fns');
 
 const { generateOTP } = require('../utils/otp-generator');
 const { compress } = require('../utils/img-compression-agent');
@@ -174,6 +174,7 @@ const register = async client => {
     }
 
     const yesterday = subDays(new Date(), 1); // Subtracts 1 day from today to use as sub_expiration
+    const next30days = addDays(new Date(), 30);
     const birthDay = format(dob, "yyyy-MM-dd");
 
     const decrypted_pw = decrypt(pw);
@@ -182,7 +183,7 @@ const register = async client => {
     try {
         return await db.sequelize.transaction( async (t) => {
             const c = await User.create(
-                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, dob: birthDay, hcp, course_id: hc_id, sub_expiration: yesterday, country_id }
+                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, dob: birthDay, hcp, course_id: hc_id, sub_expiration: next30days, country_id }
                 , { transaction: t }
             );
             if(dp){
