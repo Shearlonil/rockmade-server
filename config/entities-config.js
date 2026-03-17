@@ -1,4 +1,4 @@
-const { Op, Sequelize } = require('sequelize');
+const { Op, Sequelize, DataTypes } = require('sequelize');
 const sequelize = require('./sequelize-db-connect');
 
 const db = {};
@@ -25,9 +25,70 @@ db.staff = require('../entities/staff')(sequelize, Sequelize);
 db.staffAuths = require('../entities/staff-authority')(sequelize, Sequelize);
 db.tblJoinStaffAuths = require('../entities/tblJoinStaffAuths')(sequelize, Sequelize, db.staff, db.staffAuths);
 db.mailOTP = require('../entities/mail-otp')(sequelize, Sequelize);
+db.subscriptionPlans = require('../entities/sub_plans')(sequelize, Sequelize, DataTypes);
+db.subPlanBenefits = require('../entities/sub_plans_benefits')(sequelize, Sequelize);
+db.trainingPlans = require('../entities/training_plans')(sequelize, Sequelize);
+db.subscriptions = require('../entities/subscriptions')(sequelize, Sequelize);
 db.countries = require('../entities/countries')(sequelize, Sequelize);
 db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
 db.notifications = require('../entities/notification')(sequelize, Sequelize);
+
+// OneToMany relationship between subscription and subscription benefits
+db.subscriptionPlans.hasMany(db.subPlanBenefits, {
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column CourseId
+        name: 'plan_id',
+        allowNull: false,
+    }
+});
+db.subPlanBenefits.belongsTo(db.subscriptionPlans, {
+    foreignKey: {
+        name: 'plan_id',
+        allowNull: false,
+    }
+});
+
+// OneToMany relationship between subscription plans and subscriptions
+db.subscriptionPlans.hasMany(db.subscriptions, {
+    foreignKey: 'plan_id',
+    constraints: false,
+    scope: {
+        plan_type: 'subscribe',
+    },
+});
+db.subscriptions.belongsTo(db.subscriptionPlans, { 
+    foreignKey: 'plan_id', 
+    constraints: false 
+});
+
+// OneToMany relationship between training plans and subscriptions
+db.trainingPlans.hasMany(db.subscriptions, {
+    foreignKey: 'plan_id',
+    constraints: false,
+    scope: {
+        plan_type: 'training',
+    },
+});
+db.subscriptions.belongsTo(db.trainingPlans, { 
+    foreignKey: 'plan_id', 
+    constraints: false 
+});
+
+db.subscriptions.addHook('afterFind', findResult => {
+    if (!Array.isArray(findResult)) findResult = [findResult];
+    for (const instance of findResult) {
+        if (instance.plan_type === 'subscribe' && instance.subscriptionPlans !== undefined) {
+            instance.plan = instance.subscriptionPlans;
+        } else if (instance.plan_type === 'training' && instance.trainingPlans !== undefined) {
+            instance.plan = instance.trainingPlans;
+        }
+        // To prevent mistakes:
+        delete instance.subscriptionPlans;
+        delete instance.dataValues.subscriptionPlans;
+        delete instance.trainingPlans;
+        delete instance.dataValues.trainingPlans;
+    }
+});
 
 // OneToMany relationship between staff and courses
 db.staff.hasMany(db.courses, {

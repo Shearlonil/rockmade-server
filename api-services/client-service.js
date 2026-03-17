@@ -683,7 +683,7 @@ const listClients = async ( {name, idOffset, limit, acc_type}, pageSpan ) => {
         }
     };
 
-    const clients = await Client.findAll(
+    const clients = await User.findAll(
         { 
             where, 
             limit: limit * pageSpan,

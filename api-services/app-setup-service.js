@@ -1,17 +1,20 @@
 const db = require('../config/entities-config');
 const bcrypt = require('bcryptjs');
 
-const { bora, authorities } = require('../utils/default-entries');
+const { bora, authorities, membership_plans } = require('../utils/default-entries');
 
 const Staff = db.staff;
 const Authority = db.staffAuths;
 const terms = db.termsAndAgreement;
 const Country = db.countries;
 const Hole = db.holes;
+const SubscriptionsPlans = db.subscriptionPlans;
+const SubPlanBenefits = db.subPlanBenefits;
 
 const setUp = async () => {
     try {
         await db.sequelize.transaction( async (t) => {
+            await createSubscriptions(t);
             const admin = await createDefaultAdmin(t);
             await createAuths(t, admin);
             // create default Terms and Conditions
@@ -34,6 +37,15 @@ const setUp = async () => {
         throw new Error(error.message); // rethrow the error for front-end 
     }
 }
+
+const createSubscriptions = async (t) => {
+    for (const el of membership_plans) {
+        const plan = await SubscriptionsPlans.create({ name: el.name, amount: el.amount, duration_months: el.duration, desc: el.desc, popular: el.popular }, { transaction: t });
+        for (const benefit of el.benefits) {
+            await SubPlanBenefits.create({ desc: benefit, plan_id: plan.id }, { transaction: t });
+        }
+    }
+};
 
 const createDefaultAdmin = async (t) => {
     const { fname, lname, phone, email, sex, acc_creator } = bora;

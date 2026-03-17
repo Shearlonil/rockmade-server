@@ -8,6 +8,54 @@ module.exports = {
         sex: "M",
         acc_creator: 1,
     },
+    membership_plans: [
+        {
+            name: "Bronze",
+            duration: 1,
+            amount: 1000,
+            popular: false,
+            desc: '30 Days membership plan',
+            benefits: [
+                "50+ premium courses",
+                "7-day advance tee times",
+                "Monthly group coaching",
+                "Member events",
+                "Basic insurance",
+            ],
+        },
+        {
+            name: "Silver",
+            duration: 6,
+            popular: false,
+            amount: 5000,
+            desc: '6 Months membership plan',
+            benefits: [
+                "150+ premium courses",
+                "14-day advance tee times",
+                "Weekly pro coaching",
+                "Priority tournament entry",
+                "Premium insurance",
+                "VIP event access",
+            ],
+        },
+        {
+            name: "Gold",
+            duration: 12,
+            popular: true,
+            amount: 8000,
+            desc: '1 Year membership plan',
+            benefits: [
+                "Unlimited worldwide access",
+                "30-day advance tee times",
+                "Unlimited 1-on-1 coaching",
+                "Guaranteed tournament spots",
+                "Complete insurance",
+                "All VIP experiences",
+                "Concierge",
+                "Pro shop discounts",
+            ],
+        },
+    ],
     // 100 series => users/staff
     // 200 series => golf course, contest, country et'al
     // 300 series => clients

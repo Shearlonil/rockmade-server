@@ -13,7 +13,7 @@ const credentials = require('./middleware/credentials');
 
 db.connect();
 
-const PORT = process.env.PORT || 2025;
+const PORT = process.env.PORT || 2026;
 
 // Handle options credentials check - before CORS! and fetch cookies credentials requirement
 app.use(credentials);
@@ -41,6 +41,7 @@ app.use('/contests', require('./controllers/contest-controller'));
 app.use('/countries', require('./controllers/country-controller'));
 app.use('/users', require('./controllers/client-controller'));
 app.use('/games', require('./controllers/game-controller'));
+app.use('/subscriptions', require('./controllers/sub-plans-controller'));
 
 /*  ref: https://stackoverflow.com/questions/27928372/react-router-urls-dont-work-when-refreshing-or-writing-manually
     check neeraj-dixit27's solution on the above thread
