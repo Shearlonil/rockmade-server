@@ -65,8 +65,57 @@ const changePopularPlan = async (plan_id) => {
     }
 };
 
+const addPlanBenefit = async (data) => {
+    try {
+        const subPlan = await SubscriptionPlans.findByPk(data.plan_id);
+        if(subPlan){
+            return await SubPlanBenefits.create({ desc: data.desc, plan_id: data.plan_id });
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const removePlanBenefit = async (data) => {
+    try {
+        await SubPlanBenefits.destroy({
+            where: {
+                id: data.id,
+                plan_id: data.plan_id,
+            },
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const updatePlanBenefit = async (data) => {
+    try {
+        const benefit = await SubPlanBenefits.findByPk(data.id);
+        if(benefit){
+            benefit.desc = data.desc;
+            await benefit.save();
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 module.exports = {
     membershipPlans,
     updatePlan,
     changePopularPlan,
+    addPlanBenefit,
+    removePlanBenefit,
+    updatePlanBenefit,
 };
