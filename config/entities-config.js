@@ -9,6 +9,7 @@ db.Op = Op;
 
 db.users = require('../entities/users')(sequelize, Sequelize);
 db.imgKeyHash = require('../entities/profile_key_hash')(sequelize, Sequelize);
+db.refreshTokens = require('../entities/refresh-tokens')(sequelize, Sequelize);
 db.courses = require('../entities/courses')(sequelize, Sequelize);
 db.games = require('../entities/games')(sequelize, Sequelize);
 db.gameCodes = require('../entities/game-codes')(sequelize, Sequelize);
@@ -32,6 +33,7 @@ db.subscriptions = require('../entities/subscriptions')(sequelize, Sequelize);
 db.countries = require('../entities/countries')(sequelize, Sequelize);
 db.termsAndAgreement = require('../entities/terms-and-agreement')(sequelize, Sequelize);
 db.notifications = require('../entities/notification')(sequelize, Sequelize);
+db.emailsToUpdate = require('../entities/emails-to-update')(sequelize, Sequelize);
 
 // OneToMany relationship between subscription and subscription benefits
 db.subscriptionPlans.hasMany(db.subPlanBenefits, {

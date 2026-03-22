@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const { subDays, addDays, format } = require('date-fns');
+const { nanoid } = require('nanoid');
 
 const { generateOTP } = require('../utils/otp-generator');
 const { compress } = require('../utils/img-compression-agent');
@@ -15,6 +16,7 @@ const Course = db.courses;
 const Country = db.countries;
 const MailOTP = db.mailOTP;
 const ImgKeyHash = db.imgKeyHash;
+const EmailsToUpdate = db.emailsToUpdate;
 
 const findActiveById = async id => {
     return await User.findByPk(id, {
@@ -68,24 +70,34 @@ const findByEmail = async email => {
     });
 };
 
-const updateEmail = async (id, email) => {
-    const mail = email.trim();
-    // find client from db using id in request parameter
-    const client = await User.findOne({ where: {status: true, id} });
-    if(!client) {
-        throw new Error("Account Not Found");
-    }
+const updateEmail = async (user_id, nano_id) => {
     try {
+        // find client from db using id in request parameter
+        const client = await User.findOne({ where: {status: true, id: user_id} });
+        if(!client) {
+            throw new Error("Account Not Found");
+        }
+        const emailToUpdate = await EmailsToUpdate.findOne({ 
+            where: { nano_id }
+        });
+        if(!emailToUpdate) {
+            throw new Error("Invalid link");
+        }
+        if(client.email !== emailToUpdate.current_email){
+            throw new Error("Invalid Opertion. Emails do not match");
+        }
         await db.sequelize.transaction( async (t) => {
-            await User.update({ email: mail }, {
-                where: { id },
+            // delete email_to_update assiciated with nano_id
+            await emailToUpdate.destroy({ transaction: t });
+            await User.update({ email: emailToUpdate.new_email }, {
+                where: { id: user_id },
                 returning: true,
                 transaction: t
             });
             // delete mail_otp assiciated with email
-            await MailOTP.destroy({ where: { email } }, { transaction: t });
+            await MailOTP.destroy({ where: { email: emailToUpdate.new_email } }, { transaction: t });
         });
-        return await User.findByPk(id, {
+        return await User.findByPk(user_id, {
             where: {status: true},
             attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
             include: [
@@ -96,6 +108,43 @@ const updateEmail = async (id, email) => {
                     model: ImgKeyHash,
                 }
             ]
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
+const markEmailForUpdate = async (id, email) => {
+    const mail = email.trim();
+    // find client from db using id in request parameter
+    const client = await User.findOne({ where: {status: true, id} });
+    if(!client) {
+        throw new Error("Account Not Found");
+    }
+    try {
+        // is new email already used?
+        const inUse = await User.findOne({ where: { email: mail } });
+        if(inUse){
+            throw new Error("Email already in use. Consider using another email");
+        }
+        return await db.sequelize.transaction( async (t) => {
+            // detect if user has previously initiated process to update email
+            const emailToUpdate = await EmailsToUpdate.findOne({ 
+                where: { current_email: client.email }
+            });
+            const nano_id = nanoid();
+            if(emailToUpdate){
+                await EmailsToUpdate.update({ nano_id, new_email: mail }, {
+                    where: { current_email: client.email },
+                    returning: true,
+                    transaction: t
+                });
+            }else {
+                await EmailsToUpdate.create({ nano_id, new_email: mail, current_email: client.email, user_type: 'C' }, { transaction: t });
+            }
+            return { nano_id, current_email: client.email }
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
@@ -201,6 +250,9 @@ const register = async client => {
         if(dp && fs.existsSync(path.join(__dirname, "..", "dp-upload", client.dpName + '.webp' )) ){
             // delete compressed image
             await fsPromises.unlink(path.join(__dirname, "..", "dp-upload", client.dpName + '.webp'));
+        }
+        if(error.name === 'SequelizeUniqueConstraintError'){
+            throw new Error(error.errors[0].value + " not available. Please use a different value");
         }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
@@ -716,6 +768,7 @@ module.exports = {
     updatePersonalInfo,
     updateHomeClub,
     updateHCP,
+    markEmailForUpdate,
     updateEmail,
     updatePassword,
     resetPassword,

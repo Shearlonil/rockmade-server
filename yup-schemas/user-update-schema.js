@@ -29,9 +29,9 @@ const hc_schema = yup.object().shape({
 const email_schema = yup.object().shape({
     otp: yup.string().required('otp is required for registration'),
     email: yup
-            .string()
-            .email()
-            .matches(email_regx, 'A valid personal email format email@mail.com is required').required("Email is required"),
+        .string()
+        .email()
+        .matches(email_regx, 'A valid personal email format email@mail.com is required').required("Email is required"),
 });
 
 module.exports = {

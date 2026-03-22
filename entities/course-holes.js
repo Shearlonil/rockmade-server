@@ -4,9 +4,9 @@ module.exports = (sequelize, Sequelize) => {
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
-            // To increment hole_id automatically.
+            // To increment id automatically.
             autoIncrement:true,
-            // hold_id can not be null.
+            // id can not be null.
             allowNull:false,
             // For uniquely identifying hole.
             primaryKey:true

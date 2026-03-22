@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs');
 const express = require('express');
 const router = express.Router();
-const nodemailer = require("nodemailer");
 
 const clientService = require('../api-services/client-service');
 const staffService = require('../api-services/staff-service');
 const otpMailService = require('../api-services/mail-otp-service');
+const tokenService = require('../api-services/token-service');
+const mailService = require('../api-services/mailer-service');
 const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
 const { generateOTP } = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
@@ -32,8 +33,13 @@ const clientLogin = async (req, res) => {
             const accessToken = createClientAccessToken(found);
             // create jwt refresh token
             const refreshToken = createRefreshToken(found);
+            // is user currently logged in from other devices or browsers? if yes, send detection mail for new login
+            const isLoggedIn = await tokenService.findUserToken(found.id, 'C');
+            if(isLoggedIn){
+                await mailService.sendMail(email, "New Login Detected", "If this isn't you, please navigate to your dashboard and select log out all devices");
+            }
             // save refresh token with associated client in db
-
+            await tokenService.addToken({user_id: found.id, token: refreshToken, user_type: 'C'});
             res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 }); //
             //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
             res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
@@ -70,6 +76,13 @@ const staffLogin = async (req, res) => {
             const accessToken = createStaffAccessToken(found);
             // create jwt refresh token
             const refreshToken = createRefreshToken(found);
+            // is user currently logged in from other devices or browsers? if yes, send detection mail for new login
+            const isLoggedIn = await tokenService.findUserToken(found.id, 'S');
+            if(isLoggedIn){
+                await mailService.sendMail(email, "New Login Detected", "If this isn't you, please navigate to your dashboard and select log out all devices");
+            }
+            // save refresh token with associated client in db
+            await tokenService.addToken({user_id: found.id, token: refreshToken, user_type: 'S'});
             /*  NOTE: When testing with thunder client, remove the 'secure: true' flag to enable thunder client work with the cookie.   */
             res.cookie('session', refreshToken, { httpOnly: true, secure: true, sameSite: 'None', maxAge: 30 * 24 * 60 * 60 * 1000 }); //, secure: true
             //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
@@ -95,29 +108,8 @@ const otp = async (req, res) => {
         // create jwt token from otp
         const token = createOTPtoken(oneTimePass);
         
-        const transporter = nodemailer.createTransport({
-            host: process.env.MAIL_SERVICE_HOST,
-            port: 465,
-            secure: true, // Use true for port 465, false for all other ports
-            auth: {
-                user: process.env.MAIL_AUTH_USER,
-                pass: process.env.MAIL_AUTH_USER_PASSWORD,
-            },
-            tls: {
-                // do not fail on invalid certs
-                rejectUnauthorized: false,
-            },
-        });
-        // Configure the mailoptions object
-        const mailOptions = {
-            from: process.env.MAIL_AUTH_USER,
-            to: email,
-            subject: 'OTP',
-            text: `This message is from RockMade Golf, please use the token ${oneTimePass} to continue your registration process.`
-        };
-        
         // Send the email
-        await transporter.sendMail(mailOptions);
+        await mailService.sendMail(email, "OTP", `This message is from RockMade Golf, please use the token ${oneTimePass} to continue your registration process.`)
         // save email and associated token
         await otpMailService.saveOrUpdate(email, token);
         return res.status(200).json({'message': 'OTP sent'});

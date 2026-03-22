@@ -2,6 +2,7 @@ require('dotenv').config();
 const cors = require('cors');
 const express = require('express');
 const cookieParser = require('cookie-parser');
+// const rateLimit = require("express-rate-limit");
 const path = require('path');
 
 const app = express();
@@ -30,10 +31,21 @@ app.use(express.json());
 // for cookies
 app.use(cookieParser());
 
+/*
+// ref: https://medium.com/@ebojacky/building-a-production-ready-url-shortener-with-node-js-and-sqlite-9e4aa38a9db9
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later" },
+});
+*/
 // setup default admin account
 // setUp();
 
 // ROUTES
+// app.use("/api/", limiter);
 app.use('/auth', require('./controllers/authentication-controller'));
 app.use('/staff', require('./controllers/staff-controller'));
 app.use('/courses', require('./controllers/course-controller'));

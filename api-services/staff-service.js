@@ -2,6 +2,7 @@ const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
 const bcrypt = require('bcryptjs');
 const { format } = require('date-fns');
+const { nanoid } = require('nanoid');
 
 const otpMailService = require('./mail-otp-service');
 const { generateOTP } = require('../utils/otp-generator');
@@ -10,6 +11,7 @@ const { decrypt } = require('../utils/crypto-helper');
 const Staff = db.staff;
 const Authority = db.staffAuths;
 const MailOTP = db.mailOTP;
+const EmailsToUpdate = db.emailsToUpdate;
 
 const findById = async id => {
     return await Staff.findByPk(id, {
@@ -175,50 +177,63 @@ const updateAuthorities = async ({id, authorities}) => {
 }
 
 const register = async (staff, creatorID) => {
-    const { fname, lname, phone, email, sex, pw, authorities } = staff;
-    const f_name = fname.trim();
-    const l_name = lname.trim();
-    const mail = email.trim();
-    // encrypt password
-    const hashedPwd = await bcrypt.hash(pw, 12);
-    return await db.sequelize.transaction( async (t) => {
-        const newStaff = await Staff.create({ fname: f_name, lname: l_name, phone, pw: hashedPwd, email: mail, status: true, sex, acc_creator: creatorID }, { transaction: t });
-        for (const authCode of authorities) {
-            const auth = await Authority.findOne({ where: { code: authCode }});
-            if(!auth) {
-                throw new Error("Invalid authority specified");
+    try {
+        const { fname, lname, phone, email, sex, pw, authorities } = staff;
+        const f_name = fname.trim();
+        const l_name = lname.trim();
+        const mail = email.trim();
+        // encrypt password
+        const hashedPwd = await bcrypt.hash(pw, 12);
+        return await db.sequelize.transaction( async (t) => {
+            const newStaff = await Staff.create({ fname: f_name, lname: l_name, phone, pw: hashedPwd, email: mail, status: true, sex, acc_creator: creatorID }, { transaction: t });
+            for (const authCode of authorities) {
+                const auth = await Authority.findOne({ where: { code: authCode }});
+                if(!auth) {
+                    throw new Error("Invalid authority specified");
+                }
+                await newStaff.addAuthority(auth, { transaction: t });
             }
-            await newStaff.addAuthority(auth, { transaction: t });
+            return newStaff;
+        } );
+    } catch (error) {
+        if(error.name === 'SequelizeUniqueConstraintError'){
+            throw new Error(error.errors[0].value + " not available. Please use a different value");
         }
-        return newStaff;
-    } );
+    }
 };
 
 const deleteAccount = async (email) => {
-    await db.sequelize.transaction( async (t) => {
-        await Staff.destroy( {
-            where: {  email },
-            force: true,
-        } );
+    await Staff.destroy( {
+        where: { email },
+        force: true,
     } );
 };
 
-const updateEmail = async (id, email) => {
-    const mail = email.trim();
-    // find client from db using id in request parameter
-    const client = await Staff.findOne({ where: {status: true, id} });
-    if(!client) {
-        throw new Error("Account Not Found");
-    }
+const updateEmail = async (id, nano_id) => {
     try {
+        const staff = await Staff.findOne({ where: {status: true, id} });
+        if(!staff) {
+            throw new Error("Account Not Found");
+        }
+        const emailToUpdate = await EmailsToUpdate.findOne({ 
+            where: { nano_id }
+        });
+        if(!emailToUpdate) {
+            throw new Error("Invalid link");
+        }
+        if(staff.email !== emailToUpdate.current_email){
+            throw new Error("Invalid Opertion. Emails do not match");
+        }
         await db.sequelize.transaction( async (t) => {
-            await Staff.update({ email: mail }, {
+            // delete email_to_update assiciated with nano_id
+            await emailToUpdate.destroy({ transaction: t });
+            await Staff.update({ email: emailToUpdate.new_email }, {
                 where: { id },
                 returning: true,
                 transaction: t
             });
             // delete mail_otp assiciated with email
-            await MailOTP.destroy({ where: { email } }, { transaction: t });
+            await MailOTP.destroy({ where: { email: emailToUpdate.new_email } }, { transaction: t });
         });
         return await Staff.findByPk(id, {
             where: {status: true},
@@ -228,6 +243,43 @@ const updateEmail = async (id, email) => {
                     model: Authority,
                 },
             ]
+        });
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
+const markEmailForUpdate = async (id, email) => {
+    const mail = email.trim();
+    // find staff from db using id in request parameter
+    const staff = await Staff.findOne({ where: {status: true, id} });
+    if(!staff) {
+        throw new Error("Account Not Found");
+    }
+    try {
+        // is new email already used?
+        const inUse = await Staff.findOne({ where: { email: mail } });
+        if(inUse){
+            throw new Error("Email already in use. Consider using another email");
+        }
+        return await db.sequelize.transaction( async (t) => {
+            // detect if user has previously initiated process to update email
+            const emailToUpdate = await EmailsToUpdate.findOne({ 
+                where: { current_email: staff.email }
+            });
+            const nano_id = nanoid();
+            if(emailToUpdate){
+                await EmailsToUpdate.update({ nano_id, new_email: mail }, {
+                    where: { current_email: staff.email },
+                    returning: true,
+                    transaction: t
+                });
+            }else {
+                await EmailsToUpdate.create({ nano_id, new_email: mail, current_email: staff.email, user_type: 'S' }, { transaction: t });
+            }
+            return { nano_id, current_email: staff.email }
         });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
@@ -316,6 +368,7 @@ module.exports = {
     updateAuthorities,
     register,
     updateEmail,
+    markEmailForUpdate,
     updatePassword,
     resetPassword,
     findAll,

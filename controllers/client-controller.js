@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require("nodemailer");
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
@@ -16,6 +15,7 @@ const otpMailService = require('../api-services/mail-otp-service');
 const clientService = require('../api-services/client-service');
 const { routeEmailParamSchema, routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema, routePasswordParamSchema, } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
+const mailService = require('../api-services/mailer-service');
 
 const findById = async (req, res) => {
     try {
@@ -170,6 +170,26 @@ const updateHCP = async (req, res) => {
 
 const updateEmail = async (req, res) => {
     try {
+        const id = decrypt(req.whom.id);
+        const client = await clientService.updateEmail(id, req.params.nano_id);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        client.mode = encrypt('1');
+        // create jwt refresh token
+        const refreshToken = createRefreshToken(client);
+        res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+        // create jwt access token
+        const accessToken = createClientAccessToken(client);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const markEmailForUpdate = async (req, res) => {
+    try {
         const mail_otp = await otpMailService.findByEmail(req.body.email);
         if(mail_otp){
             const clientObj = req.body;
@@ -179,18 +199,15 @@ const updateEmail = async (req, res) => {
                 return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
             }
             const id = decrypt(req.whom.id);
-            const client = await clientService.updateEmail(id, req.body.email);
-            // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-            client.mode = encrypt('1');
-            // create jwt refresh token
-            const refreshToken = createRefreshToken(client);
-            res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
-            // create jwt access token
-            const accessToken = createClientAccessToken(client);
-            //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
-            res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-            res.setHeader('authorization', 'Bearer ' + accessToken);
-            res.sendStatus(200);
+            const user_type = encrypt('1');
+            const response = await clientService.markEmailForUpdate(id, req.body.email);
+            await mailService.sendMail(response.current_email, 'Email Update Request', 
+                `This message is from RockMade Golf. 
+            A request to update your email was initiated. Please use the link below to continue
+            ${process.env.BASE_URL}/profile/${user_type}/email/update/${response.nano_id}.
+            If you did not initiate this process, please ignore this email.`);
+
+            res.status(201).json({'message': `A mail has been sent to ${response.current_email}. Access the mail to continue the process.`});
         }else {
             res.status(400).json({'message': "No associated mail found with otp."});
         } 
@@ -251,26 +268,9 @@ const resetPassword = async (req, res) => {
         routeStringMiscParamSchema.validateSync(lname);
         // reset password
         const pw = await clientService.resetPassword(req.body);
-
-        const transporter = nodemailer.createTransport({
-            host: process.env.MAIL_SERVICE_HOST,
-            port: 465,
-            secure: true, // Use true for port 465, false for all other ports
-            auth: {
-                user: process.env.MAIL_AUTH_USER,
-                pass: process.env.MAIL_AUTH_USER_PASSWORD,
-            },
-        });
-        // Configure the mailoptions object
-        const mailOptions = {
-            from: process.env.MAIL_AUTH_USER,
-            to: email,
-            subject: 'Password Reset',
-            text: `A password reset process has been initiated and your password has been reset successfully, please use this password ${pw} to login into your account. You can change it in your dashboard.`
-        };
         
         // Send the email
-        await transporter.sendMail(mailOptions);
+        await mailService.sendMail(email, 'Password Reset', `A password reset process has been initiated and your password has been reset successfully, please use this password ${pw} to login into your account. You can change it in your dashboard.`);
         res.status(200).json({'message': 'Password reset successfull\nPlease check your email for new password.\nIf not found in your inbox, please check your spam'});
     } catch (error) {
         return res.status(400).json({'message': error.message});
@@ -330,7 +330,6 @@ const getImg = async (req, res) => {
     try {
         routeStringMiscParamSchema.validateSync(req.params.filename);
         const filePath = path.join(__dirname, "..", "dp-upload", `${req.params.filename}.webp`)
-        console.log(filePath);
         if (fs.existsSync(filePath)) {
             res.sendFile(filePath);
         } else {
@@ -357,7 +356,8 @@ router.route('/profile/info/update').put( verifyAccessToken, validate(personal_i
 router.route('/profile/hc/update').put( verifyAccessToken, updateHomeClub );
 router.route('/profile/hcp/update').put( verifyAccessToken, validate(hcp_schema), updateHCP );
 router.route('/profile/pw/update').put( verifyAccessToken, validate(pw_schema), updatePassword );
-router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), updateEmail );
+router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), markEmailForUpdate );
+router.route('/profile/email/update/:nano_id').get( verifyAccessToken, updateEmail );
 router.route('/profile/dp/update').post(verifyAccessToken, multerImgUpload, dpUpload );
 router.route('/pw/reset').put( resetPassword );
 router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );

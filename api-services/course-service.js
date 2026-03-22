@@ -99,7 +99,9 @@ const createGolfCourse = async (creator_id, course) => {
             throw new Error("Invalid number of holes specified");
         }
     } catch (error) {
-        console.log(error);
+        if(error.name === 'SequelizeUniqueConstraintError'){
+            throw new Error(error.errors[0].value + " not available. Please use a different name");
+        }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 
@@ -118,6 +120,9 @@ const updateCourse = async (course) => {
             returning: true,
         });
     } catch (error) {
+        if(error.name === 'SequelizeUniqueConstraintError'){
+            throw new Error(error.errors[0].value + " not available. Please use a different name");
+        }
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
         throw new Error(error.message); // rethrow the error for front-end 

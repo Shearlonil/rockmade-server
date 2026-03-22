@@ -4,9 +4,9 @@ module.exports = (sequelize, Sequelize) => {
         id:{
             // Sequelize module has INTEGER Data_Type.
             type:Sequelize.BIGINT,
-            // To increment course_id automatically.
+            // To increment id automatically.
             autoIncrement:true,
-            // course_id can not be null.
+            // id can not be null.
             allowNull:false,
             // For uniquely identifying GameHoleContests.
             primaryKey:true

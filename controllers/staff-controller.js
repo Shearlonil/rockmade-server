@@ -1,7 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const nodemailer = require("nodemailer");
 
 const validate = require('../middleware/schemer-validator');
 const { authorities } = require('../utils/default-entries');
@@ -13,7 +11,9 @@ const mailOtpService = require('../api-services/mail-otp-service');
 const { schema, personal_info_schema } = require('../yup-schemas/staff-schema');
 const { email_schema } = require('../yup-schemas/user-update-schema');
 const { routeEmailParamSchema, routeStringMiscParamSchema, routePasswordParamSchema, routePositiveNumberMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
+const otpMailService = require('../api-services/mail-otp-service');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
+const mailService = require('../api-services/mailer-service');
 
 const findById = async (req, res) => {
     try {
@@ -72,32 +72,49 @@ const updatePersonalInfo = async (req, res) => {
     }
 }
 
-const updateEmail = async (req, res) => {
+const markEmailForUpdate = async (req, res) => {
     try {
-        const mail_otp = await mailOtpService.findByEmail(req.body.email);
+        const mail_otp = await otpMailService.findByEmail(req.body.email);
         if(mail_otp){
-            const staffObj = req.body;
-            verifyOTPtoken(staffObj, mail_otp.otp);
+            const clientObj = req.body;
+            verifyOTPtoken(clientObj, mail_otp.otp);
             // check if submitted otp is same as db otp
-            if(staffObj.decodedOTP !== staffObj.otp){
+            if(clientObj.decodedOTP !== clientObj.otp){
                 return res.status(400).json({'message': 'OTP verification failed.\nPlease request a new OTP and continue'});
             }
             const id = decrypt(req.whom.id);
-            const staff = await staffService.updateEmail(id, req.body.email);
-            // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-            staff.mode = encrypt('0');
-            // create jwt refresh token
-            const refreshToken = createRefreshToken(staff);
-            res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
-            // create jwt access token
-            const accessToken = createStaffAccessToken(staff);
-            //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
-            res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-            res.setHeader('authorization', 'Bearer ' + accessToken);
-            res.sendStatus(200);
+            const user_type = encrypt('0');
+            const response = await staffService.markEmailForUpdate(id, req.body.email);
+            await mailService.sendMail(response.current_email, 'Email Update Request', 
+                `This message is from RockMade Golf. 
+            A request to update your email was initiated. Please use the link below to continue
+            ${process.env.BASE_URL}/profile/${user_type}/email/update/${response.nano_id}.
+            If you did not initiate this process, please ignore this email.`);
+
+            res.status(201).json({'message': `A mail has been sent to ${response.current_email}. Access the mail to continue the process.`});
         }else {
             res.status(400).json({'message': "No associated mail found with otp."});
         } 
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
+const updateEmail = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        const staff = await staffService.updateEmail(id, req.params.nano_id);
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        staff.mode = encrypt('0');
+        // create jwt refresh token
+        const refreshToken = createRefreshToken(staff);
+        res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+        // create jwt access token
+        const accessToken = createStaffAccessToken(staff);
+        //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -181,25 +198,16 @@ const registerStaff = async (req, res) => {
         // create staff account
         const id = decrypt(req.whom.id);
         const staff = await staffService.register(req.body, id);
-
-        const transporter = nodemailer.createTransport({
-            host: process.env.MAIL_SERVICE_HOST,
-            port: 465,
-            secure: true, // Use true for port 465, false for all other ports
-            auth: {
-                user: process.env.MAIL_AUTH_USER,
-                pass: process.env.MAIL_AUTH_USER_PASSWORD,
-            },
-        });
-        // Configure the mailoptions object
-        const mailOptions = {
-            from: process.env.MAIL_AUTH_USER,
-            to: email,
-            subject: 'Autogenerated Password',
-            text: `This message is from RockMade Golf, please use the autogenerated password ${oneTimePass} to login. You may change the password whenever you like. `
-        };
         
-        // Send the email
+        try {
+            await mailService.sendMail(email, 'Autogenerated Password', `This message is from RockMade Golf, please use the autogenerated password ${oneTimePass} to login. You may change the password whenever you like.`);
+            res.status(201).json(staff);
+        } catch (error) {
+            // on error sending mail, delete account created earlier
+            await staffService.deleteAccount(email);
+            res.status(500).json({'message': "Unable to send mail"});
+        }
+        /* Send the email
         transporter.sendMail(mailOptions, async (error, info) => {
             if (error) {
                 // on error sending mail, delete account created earlier
@@ -209,8 +217,9 @@ const registerStaff = async (req, res) => {
                 res.status(201).json(staff);
             }
         });
+        */
     } catch (error) {
-        return res.status(400).json({'message': error.message});
+        return res.status(500).json({'message': error.message});
     }
 };
 
@@ -238,24 +247,9 @@ const resetPassword = async (req, res) => {
         // reset password
         const pw = await staffService.resetPassword(req.body);
 
-        const transporter = nodemailer.createTransport({
-            host: process.env.MAIL_SERVICE_HOST,
-            port: 465,
-            secure: true, // Use true for port 465, false for all other ports
-            auth: {
-                user: process.env.MAIL_AUTH_USER,
-                pass: process.env.MAIL_AUTH_USER_PASSWORD,
-            },
-        });
-        // Configure the mailoptions object
-        const mailOptions = {
-            from: process.env.MAIL_AUTH_USER,
-            to: email,
-            subject: 'Password Reset',
-            text: `A password reset process has been initiated and your password has been reset successfully, please use this password ${pw} to login into your account. You can change it in your dashboard.`
-        };
-        
-        // Send the email
+        await mailService.sendMail(email, 'Password Reset', `A password reset process has been initiated and your password has been reset successfully, please use this password ${pw} to login into your account. You can change it in your dashboard.`);
+        res.status(200).json({'message': 'Password reset successfull\nPlease check your email for new password.\nIf not found in your inbox, please check your spam'});
+        /* Send the email
         transporter.sendMail(mailOptions, async (error, info) => {
             if (error) {
                 res.status(500).json({'message': error.response });
@@ -263,8 +257,9 @@ const resetPassword = async (req, res) => {
                 res.status(200).json({'message': 'Password reset successfull\nPlease check your email for new password.\nIf not found in your inbox, please check your spam'});
             }
         });
+        */
     } catch (error) {
-        return res.status(400).json({'message': error.message});
+        return res.status(500).json({'message': error.message});
     }
 }
 
@@ -353,7 +348,8 @@ router.route('/search').get( verifyAccessToken, preAuthorize(authorities.staffSe
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
 router.route('/profile/pw/update').put( verifyAccessToken, updatePassword );
 router.route('/profile/info/update').put( verifyAccessToken, validate(personal_info_schema), updatePersonalInfo );
-router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), updateEmail );
+router.route('/profile/email/update/:nano_id').get( verifyAccessToken, updateEmail );
+router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), markEmailForUpdate );
 router.route('/profile/search/:id').get( verifyAccessToken, preAuthorize(authorities.viewStaffProfile.code), findByIdWithAuths );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.staffSearch.code), findById );
 router.route('/active/init/:pageSize').get( verifyAccessToken, preAuthorize(authorities.viewStaff.code), activeStaffPageInit );
