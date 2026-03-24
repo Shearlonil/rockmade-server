@@ -6,12 +6,14 @@ const { nanoid } = require('nanoid');
 
 const otpMailService = require('./mail-otp-service');
 const { generateOTP } = require('../utils/otp-generator');
-const { decrypt } = require('../utils/crypto-helper');
+const { decrypt, encrypt } = require('../utils/crypto-helper');
+const { createRefreshToken, createStaffAccessToken } = require('../middleware/jwt');
 
 const Staff = db.staff;
 const Authority = db.staffAuths;
 const MailOTP = db.mailOTP;
 const EmailsToUpdate = db.emailsToUpdate;
+const RefreshToken = db.refreshTokens;
 
 const findById = async id => {
     return await Staff.findByPk(id, {
@@ -211,7 +213,15 @@ const deleteAccount = async (email) => {
 
 const updateEmail = async (id, nano_id) => {
     try {
-        const staff = await Staff.findOne({ where: {status: true, id} });
+        const staff = await Staff.findByPk(id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
+            include: [
+                {
+                    model: Authority,
+                },
+            ]
+        });
         if(!staff) {
             throw new Error("Account Not Found");
         }
@@ -224,6 +234,14 @@ const updateEmail = async (id, nano_id) => {
         if(staff.email !== emailToUpdate.current_email){
             throw new Error("Invalid Opertion. Emails do not match");
         }
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        staff.mode = encrypt('0');
+        // update staff mail to new mail
+        staff.email = emailToUpdate.new_email;
+        // create jwt refresh token
+        const refreshToken = createRefreshToken(staff);
+        // create jwt access token
+        const accessToken = createStaffAccessToken(staff);
         await db.sequelize.transaction( async (t) => {
             // delete email_to_update assiciated with nano_id
             await emailToUpdate.destroy({ transaction: t });
@@ -234,16 +252,12 @@ const updateEmail = async (id, nano_id) => {
             });
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email: emailToUpdate.new_email } }, { transaction: t });
+            // delete all logged in tokens in refresh_tokens for this staff
+            await RefreshToken.destroy({where: { user_id: id, user_type: 'S' }}, { transaction: t });
+            // save refresh token with associated staff in db
+            await RefreshToken.create({ user_id: id, user_type: "S", token: refreshToken }, { transaction: t });
         });
-        return await Staff.findByPk(id, {
-            where: {status: true},
-            attributes: ['id', 'fname', 'lname', 'phone', 'email', 'sex', 'acc_creator', 'status', 'createdAt'],
-            include: [
-                {
-                    model: Authority,
-                },
-            ]
-        });
+        return { refreshToken, accessToken };
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!

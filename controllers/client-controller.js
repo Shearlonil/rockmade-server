@@ -171,17 +171,11 @@ const updateHCP = async (req, res) => {
 const updateEmail = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
-        const client = await clientService.updateEmail(id, req.params.nano_id);
-        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-        client.mode = encrypt('1');
-        // create jwt refresh token
-        const refreshToken = createRefreshToken(client);
-        res.cookie('session', refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
-        // create jwt access token
-        const accessToken = createClientAccessToken(client);
+        const tokens = await clientService.updateEmail(id, req.params.nano_id);
+        res.cookie('session', tokens.refreshToken, { httpOnly: true, sameSite: 'None', secure: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
         //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
         res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.setHeader('authorization', 'Bearer ' + tokens.accessToken);
         res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});

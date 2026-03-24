@@ -10,6 +10,7 @@ const { nanoid } = require('nanoid');
 const { generateOTP } = require('../utils/otp-generator');
 const { compress } = require('../utils/img-compression-agent');
 const { decrypt, encrypt } = require('../utils/crypto-helper');
+const { createRefreshToken, createClientAccessToken } = require('../middleware/jwt');
 
 const User = db.users;
 const Course = db.courses;
@@ -17,6 +18,7 @@ const Country = db.countries;
 const MailOTP = db.mailOTP;
 const ImgKeyHash = db.imgKeyHash;
 const EmailsToUpdate = db.emailsToUpdate;
+const RefreshToken = db.refreshTokens;
 
 const findActiveById = async id => {
     return await User.findByPk(id, {
@@ -73,7 +75,18 @@ const findByEmail = async email => {
 const updateEmail = async (user_id, nano_id) => {
     try {
         // find client from db using id in request parameter
-        const client = await User.findOne({ where: {status: true, id: user_id} });
+        const client = await User.findByPk(user_id, {
+            where: {status: true},
+            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                }
+            ]
+        });
         if(!client) {
             throw new Error("Account Not Found");
         }
@@ -86,6 +99,14 @@ const updateEmail = async (user_id, nano_id) => {
         if(client.email !== emailToUpdate.current_email){
             throw new Error("Invalid Opertion. Emails do not match");
         }
+        // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
+        client.mode = encrypt('1');
+        // update client mail to new mail
+        client.email = emailToUpdate.new_email;
+        // create jwt refresh token
+        const refreshToken = createRefreshToken(client);
+        // create jwt access token
+        const accessToken = createClientAccessToken(client);
         await db.sequelize.transaction( async (t) => {
             // delete email_to_update assiciated with nano_id
             await emailToUpdate.destroy({ transaction: t });
@@ -96,19 +117,12 @@ const updateEmail = async (user_id, nano_id) => {
             });
             // delete mail_otp assiciated with email
             await MailOTP.destroy({ where: { email: emailToUpdate.new_email } }, { transaction: t });
+            // delete all logged in tokens in refresh_tokens for this staff
+            await RefreshToken.destroy({where: { user_id, user_type: 'C' }}, { transaction: t });
+            // save refresh token with associated client in db
+            await RefreshToken.create({ user_id, user_type: "C", token: refreshToken }, { transaction: t });
         });
-        return await User.findByPk(user_id, {
-            where: {status: true},
-            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
-            include: [
-                {
-                    model: Course,
-                },
-                {
-                    model: ImgKeyHash,
-                }
-            ]
-        });
+        return { refreshToken, accessToken };
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!
