@@ -1,5 +1,6 @@
 const db = require('../config/entities-config');
 const bcrypt = require('bcryptjs');
+const { nanoid } = require('nanoid');
 
 const { bora, authorities, membership_plans } = require('../utils/default-entries');
 
@@ -28,7 +29,7 @@ const setUp = async () => {
                 }
             ];
             await terms.create({value: arr}, { transaction: t });
-            await Country.create({name: "Nigeria", status: true, creator_id: admin.id}, { transaction: t });
+            await Country.create({nano_id: nanoid(), name: "Nigeria", status: true, creator_id: admin.id}, { transaction: t });
             await createHoles(t);
         });
     } catch (error) {
@@ -40,7 +41,7 @@ const setUp = async () => {
 
 const createSubscriptions = async (t) => {
     for (const el of membership_plans) {
-        const plan = await SubscriptionsPlans.create({ name: el.name, amount: el.amount, duration_months: el.duration, desc: el.desc, popular: el.popular }, { transaction: t });
+        const plan = await SubscriptionsPlans.create({ nano_id: nanoid(), name: el.name, amount: el.amount, duration_months: el.duration, desc: el.desc, popular: el.popular }, { transaction: t });
         for (const benefit of el.benefits) {
             await SubPlanBenefits.create({ desc: benefit, plan_id: plan.id }, { transaction: t });
         }
@@ -52,7 +53,7 @@ const createDefaultAdmin = async (t) => {
     // encrypt password
     const hashedPwd = await bcrypt.hash('123456', 12);
     return await Staff.create(
-        { fname, lname, phone, pw: hashedPwd, email, status: true, sex, acc_creator },
+        { nano_id: nanoid(), fname, lname, phone, pw: hashedPwd, email, status: true, sex, acc_creator },
         { transaction: t }
     );
 };

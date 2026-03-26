@@ -201,17 +201,6 @@ const registerStaff = async (req, res) => {
             await staffService.deleteAccount(email);
             res.status(500).json({'message': "Unable to send mail"});
         }
-        /* Send the email
-        transporter.sendMail(mailOptions, async (error, info) => {
-            if (error) {
-                // on error sending mail, delete account created earlier
-                await staffService.deleteAccount(email);
-                res.status(500).json({'message': error.response });
-            } else {
-                res.status(201).json(staff);
-            }
-        });
-        */
     } catch (error) {
         return res.status(500).json({'message': error.message});
     }

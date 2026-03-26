@@ -11,12 +11,19 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying games.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+            //  nano id must be unique
+            // unique: 'nano_id'
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  game name must be unique
-            unique: true
+            // unique:'name',
         },
         date: {
             type: Sequelize.DATEONLY,
@@ -74,7 +81,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'games',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return Games;
 };

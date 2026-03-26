@@ -1,6 +1,7 @@
 const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
 const { Op } = require('sequelize');
+const { nanoid } = require('nanoid');
 
 const Course = db.courses;
 const Staff = db.staff;
@@ -33,6 +34,32 @@ const findById = async (id) => {
     );
 }
 
+const findByNanoId = async (nano_id) => {
+    return await Course.findOne({ 
+        where: { nano_id },
+        include: [
+            {
+                model: Hole,
+                as: 'holes',
+                include: [
+                    { 
+                        model: Contest,
+                        as: 'contests',
+                        through: {
+                            where: {
+                                // course_id: {
+                                //     [Op.eq]: db.sequelize.literal(`(select id from courses where courses.nano_id = ${nano_id})`)
+                                // },
+                                course_id: db.sequelize.literal(`(select id from courses where courses.nano_id = ${nano_id})`),
+                            }
+                        },
+                    }
+                ],
+            },
+        ]
+    } );
+}
+
 const paginateFetch = async (prop) => {
     // page: Current page number (e.g., 1-indexed), pageSize: Number of items per page
     const {page, pageSize, status} = prop; 
@@ -42,7 +69,7 @@ const paginateFetch = async (prop) => {
     const s = JSON.parse(status);
 
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        `SELECT c.nano_id, c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
         c.creator_id = s.id WHERE c.status = :s LIMIT :size OFFSET :offset`, {
             replacements: { 
                 size, s, offset
@@ -57,7 +84,7 @@ const search = async (prop) => {
     const { str, status } = prop;
     const s = JSON.parse(status);
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        `SELECT c.nano_id, c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
         c.creator_id = s.id WHERE c.name LIKE :searchPattern and c.status = :s`, {
             replacements: { 
                 searchPattern: `%${str}%`,
@@ -75,7 +102,7 @@ const createGolfCourse = async (creator_id, course) => {
         if(holes.length === 9 || holes.length === 18){
             const creator = await Staff.findByPk(creator_id);
             await db.sequelize.transaction( async (t) => {
-                const c = await Course.create( { name, no_of_holes: hole_count, location, creator_id: creator.id }, { transaction: t });
+                const c = await Course.create( { nano_id: nanoid(), name, no_of_holes: hole_count, location, creator_id: creator.id }, { transaction: t });
                     
                 for (const hole of holes) {
                     const { hole_no, hcp, par, contests = [] } = hole;
@@ -268,7 +295,7 @@ const findAllActive = async () => {
 const activeCoursesPageInit = async (pageSize) => {
     let size = pageSize * 1;    // convert to number
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        `SELECT c.nano_id as id, c.nano_id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
         c.creator_id = s.id WHERE c.status = ${'true'} LIMIT :size`, {
             replacements: { 
                 size,
@@ -284,7 +311,7 @@ const activeCoursesPageInit = async (pageSize) => {
 const inactiveCoursesPageInit = async (pageSize) => {
     let size = pageSize * 1;    // convert to number
     const [results, metadata] = await db.sequelize.query(
-        `SELECT c.id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
+        `SELECT c.nano_id as id, c.name, c.no_of_holes, c.location, c.status, c.createdAt, s.fname, s.lname, s.sex, s.email, s.phone FROM courses c inner join staff s on 
         c.creator_id = s.id WHERE c.status = ${'false'} LIMIT :size`, {
             replacements: { 
                 size,
@@ -336,6 +363,7 @@ const onboardingCourseSearch = async (prop) => {
 
 module.exports = {
     findById,
+    findByNanoId,
     search,
     paginateFetch,
     createGolfCourse,

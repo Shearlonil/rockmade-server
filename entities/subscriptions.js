@@ -31,7 +31,7 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true,
             //  of course paystack transaction ref must be unique
-            unique: true
+            unique: 'paystack_transaction_ref'
         },
         amount: {
             type: Sequelize.INTEGER,
@@ -42,7 +42,7 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'subscriptions',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
     });
 
     Subscriptions.getPlan = (options) => {

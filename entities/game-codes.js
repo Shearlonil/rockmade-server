@@ -23,15 +23,13 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  game join code must be unique
-            unique: true
+            unique:'join_code',
         },
         view_code: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  game view code must be unique
-            unique: true
+            unique:'view_code',
         },
         /*  this holds the last five characters common to both join_code and view_code. Reason for this is for quick search. When the common code is
             generated, it can be searched if already existing to minimize chances of collision. Though, the four characters in the first half will alson
@@ -41,14 +39,13 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  game code must be unique
-            unique: true
+            unique:'common_code',
         },
     }, {
         tableName: 'game_codes',
         timestamps: false,
         createdAt: false,
-        updatedAt: false
+        updatedAt: false,
     });  
     return GameCodes;
 };

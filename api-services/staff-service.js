@@ -187,7 +187,7 @@ const register = async (staff, creatorID) => {
         // encrypt password
         const hashedPwd = await bcrypt.hash(pw, 12);
         return await db.sequelize.transaction( async (t) => {
-            const newStaff = await Staff.create({ fname: f_name, lname: l_name, phone, pw: hashedPwd, email: mail, status: true, sex, acc_creator: creatorID }, { transaction: t });
+            const newStaff = await Staff.create({ nano_id: nanoid(), fname: f_name, lname: l_name, phone, pw: hashedPwd, email: mail, status: true, sex, acc_creator: creatorID }, { transaction: t });
             for (const authCode of authorities) {
                 const auth = await Authority.findOne({ where: { code: authCode }});
                 if(!auth) {
@@ -198,9 +198,12 @@ const register = async (staff, creatorID) => {
             return newStaff;
         } );
     } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
         if(error.name === 'SequelizeUniqueConstraintError'){
             throw new Error(error.errors[0].value + " not available. Please use a different value");
         }
+        throw new Error(error.message); // rethrow the error for front-end 
     }
 };
 

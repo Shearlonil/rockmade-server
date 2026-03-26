@@ -11,12 +11,20 @@ module.exports = (sequelize, Sequelize, DataTypes) => {
             // For uniquely identifying SubscriptionPlans.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+            //  nano id must be unique
+            // unique: 'nano_id'
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
             //  plan name must be unique
-            unique: true
+            // unique: 'name'
         },
         desc: {
             type: Sequelize.STRING,
@@ -51,7 +59,8 @@ module.exports = (sequelize, Sequelize, DataTypes) => {
         tableName: 'sub_plans',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return SubscriptionPlans;
 };

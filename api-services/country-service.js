@@ -1,11 +1,12 @@
 const db = require('../config/entities-config');
+const { nanoid } = require('nanoid');
 
 const Country = db.countries;
 
 const create = async (creator_id, name) => {
     try {
         await db.sequelize.transaction( async (t) => {
-            await Country.create({ name, creator_id }, { transaction: t });
+            await Country.create({ nano_id: nanoid(), name, creator_id }, { transaction: t });
         } );
     } catch (error) {
         // If the execution reaches this line, an error occurred.

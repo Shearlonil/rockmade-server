@@ -11,12 +11,20 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying TrainingPlans.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+            //  nano id must be unique
+            // unique: 'nano_id'
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
             //  trainingPlans name must be unique
-            unique: true
+            // unique: 'name'
         },
         desc: {
             type: Sequelize.STRING,
@@ -44,7 +52,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'training_plans',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return TrainingPlans;
 };

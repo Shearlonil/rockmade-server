@@ -54,7 +54,7 @@ const findById = async id => {
 // solely for checking user subscription
 const findSubById = async id => {
     return await User.findByPk(id, {
-        attributes: ['id', 'sub_expiration' ]
+        attributes: ['id', 'nano_id', 'sub_expiration' ]
     });
 };
 
@@ -246,7 +246,7 @@ const register = async client => {
     try {
         return await db.sequelize.transaction( async (t) => {
             const c = await User.create(
-                { fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, dob: birthDay, hcp, course_id: hc_id, sub_expiration: next30days, country_id }
+                { nano_id: nanoid(), fname: f_name, lname: l_name, pw: hashedPwd, email: mail, status: true, gender, dob: birthDay, hcp, course_id: hc_id, sub_expiration: next30days, country_id }
                 , { transaction: t }
             );
             if(dp){
@@ -412,7 +412,7 @@ const updateHCP = async (id, hcp) => {
         // fetch updated client and return
         return await User.findByPk(id, {
             where: {status: true},
-            attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+            attributes: ['id', 'nano_id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
             include: [
                 {
                     model: Course,
@@ -459,7 +459,7 @@ const dashboardInfo = async (id) => {
     );
     // Ongoing Games/Rounds
     const [ongoingRoundsResult, ongoingRoundsMetadata] = await db.sequelize.query(
-        `select distinct game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, courses.name as course_name, 
+        `select distinct games.nano_id as game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, courses.name as course_name, 
         games.createdAt, courses.id as course_id from user_game_group join games on user_game_group.game_id = games.id join courses on games.course_id = courses.id 
         where user_id = :id and games.status < 3`,
         {
@@ -468,7 +468,7 @@ const dashboardInfo = async (id) => {
     );
     // Recent/last 5 games played
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+        `select distinct a.id, games.nano_id as game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
         count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
         b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id, a.id ORDER BY a.id DESC limit 5`,
         {
@@ -490,22 +490,23 @@ const dashboardInfo = async (id) => {
     return results[0];
 }
 
-const playedCourses = async (id) => {
+const playedCourses = async (nano_id) => {
     // Courses played
     const [results, metadata] = await db.sequelize.query(
         `select c.name, c.no_of_holes, c.location, sum(ch.par) as par from user_game_group join games on user_game_group.game_id = games.id join courses c on 
-        games.course_id = c.id join course_holes ch on ch.course_id = c.id where user_id = :id and games.status = 3 group by c.id;`,
+        games.course_id = c.id join course_holes ch on ch.course_id = c.id where user_id = (select id from users where nano_id = :nano_id) and games.status = 3 group by c.id;`,
         {
-            replacements: { id },
+            replacements: { nano_id },
         }
     );
     return results;
 }
 
-const playerInfo = async (id) => {
+const playerInfo = async (nano_id) => {
     // Home club data
-    const user = await User.findByPk(id, {
-        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+    const user = await User.findOne({
+        where: { nano_id },
+        attributes: ['id', 'nano_id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
         include: [
             {
                 model: Course,
@@ -520,11 +521,11 @@ const playerInfo = async (id) => {
         // TODO: LAST 10 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
         // Recent/last 5 games played
         const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-            `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
+            `select distinct a.id, a.game_id, games.nano_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
             count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 
             b on a.game_id = b.game_id where a.user_id = :id and games.status = 3 group by a.game_id, a.id ORDER BY a.id DESC limit 10`,
             {
-                replacements: { id },
+                replacements: { id: user.id },
             }
         );
         // Courses and number of games played
@@ -532,7 +533,7 @@ const playerInfo = async (id) => {
             `select count(distinct course_id) as courses_played, count(distinct game_id) as games_played from 
             user_game_group join games on user_game_group.game_id = games.id where user_id = :id and games.status = 3`,
             {
-                replacements: { id },
+                replacements: { id: user.id },
             }
         );
         results[0].recent_games = recentGamesResult;
@@ -549,7 +550,7 @@ const playerSearch = async (id, hc, cursor, page_size) => {
     if(hc === true || hc === 'true'){
         // search players in same home club as signed in user
         return await User.findAll({
-            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
             where: { 
                 status: true,
                 id: {
@@ -565,7 +566,7 @@ const playerSearch = async (id, hc, cursor, page_size) => {
                 },
                 {
                     model: Course,
-                    attributes: ['id', 'name' ],
+                    attributes: ['id', 'nano_id', 'name' ],
                     where: { status : true },
                 },
             ],
@@ -574,7 +575,7 @@ const playerSearch = async (id, hc, cursor, page_size) => {
         });
     }else {
         return await User.findAll({
-            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
             where: { 
                 status: true,
                 id: {
@@ -587,7 +588,7 @@ const playerSearch = async (id, hc, cursor, page_size) => {
                 },
                 {
                     model: Course,
-                    attributes: ['id', 'name' ],
+                    attributes: ['id', 'nano_id', 'name' ],
                     where: { status : true },
                 },
             ],
@@ -603,7 +604,7 @@ const playerQryStrSearch = async (id, hc, cursor, page_size, queryStr) => {
     if(hc === true || hc === 'true'){
         // search players in same home club as signed in user
         return await User.findAll({
-            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
             where: { 
                 status: true,
                 id: {
@@ -627,7 +628,7 @@ const playerQryStrSearch = async (id, hc, cursor, page_size, queryStr) => {
                 },
                 {
                     model: Course,
-                    attributes: ['id', 'name' ],
+                    attributes: ['id', 'nano_id', 'name' ],
                     where: { status : true },
                 },
             ],
@@ -636,7 +637,7 @@ const playerQryStrSearch = async (id, hc, cursor, page_size, queryStr) => {
         });
     }else {
         return await User.findAll({
-            attributes: ['id', 'fname', 'lname', 'hcp' ],
+            attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
             where: { 
                 status: true,
                 id: {
@@ -657,7 +658,7 @@ const playerQryStrSearch = async (id, hc, cursor, page_size, queryStr) => {
                 },
                 {
                     model: Course,
-                    attributes: ['id', 'name' ],
+                    attributes: ['id', 'nano_id', 'name' ],
                     where: { status : true },
                 },
             ],
@@ -672,7 +673,7 @@ const search = async (prop) => {
     const { str, status } = prop;
     const s = JSON.parse(status);
     return await User.findAll({
-        attributes: ['id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp' ],
+        attributes: ['id', 'nano_id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp' ],
         where: { 
             status: s,
             [Op.or]: {
@@ -690,18 +691,18 @@ const search = async (prop) => {
             },
             {
                 model: Course,
-                attributes: ['id', 'name' ],
+                attributes: ['id', 'nano_id', 'name' ],
                 where: { status : true },
             },
         ]
     });
 }
 
-const gameSearch = async (prop) => {
+const gameUserSearch = async (prop) => {
     const { str } = prop;
     const sub = format(new Date(), "yyyy-MM-dd");
     return await User.findAll({
-        attributes: ['id', 'fname', 'lname', 'hcp' ],
+        attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
         where: { 
             status: true,
             sub_expiration: {
@@ -722,7 +723,7 @@ const gameSearch = async (prop) => {
             },
             {
                 model: Course,
-                attributes: ['id', 'name' ],
+                attributes: ['id', 'nano_id', 'name' ],
                 where: { status : true },
             },
         ]
@@ -795,5 +796,5 @@ module.exports = {
     search,
     playerSearch, 
     playerQryStrSearch,
-    gameSearch,
+    gameUserSearch,
 };

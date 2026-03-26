@@ -1,9 +1,9 @@
 const db = require('../config/entities-config');
-// const { Op } = require('sequelize');
 const Op = db.Op;
 const sql = db.sql;
 const { QueryTypes } = db.sequelize;
 const { format } = require('date-fns');
+const { nanoid } = require('nanoid');
 const { gameCodeGenerator, generateOTP } = require('../utils/otp-generator');
 
 const Course = db.courses;
@@ -19,10 +19,13 @@ const UserGameGroup = db.userGameGroup;
 const User = db.users;
 const ImgKeyHash = db.imgKeyHash;
 
-const findOngoingRoundById = async id => {
+const findOngoingRoundById = async nano_id => {
     const game = await Game.findOne({
+        attributes: {
+            exclude: ['id'],
+        },
         where: { 
-            id,
+            nano_id,
             status: {
                 [Op.between] : [1, 2]
             }
@@ -44,7 +47,7 @@ const findOngoingRoundById = async id => {
             },
             {
                 model: User,
-                attributes: ['id', 'fname', 'lname', 'hcp'],
+                attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp'],
                 as: 'users',
                 include: {
                     model: ImgKeyHash,
@@ -80,10 +83,14 @@ const findOngoingRoundById = async id => {
     }
 };
 
-const findGameHistoryById = async id => {
+const findGameHistoryById = async nano_id => {
     const game = await Game.findOne({
+        attributes: {
+            exclude: ['id'],
+            // include: [['nano_id', 'id'], 'name', 'date', 'rounds', 'mode', 'hole_mode', 'status', 'group_size', 'current_round', 'createdAt', 'course_id', 'creator_id'],
+        },
         where: { 
-            id,
+            nano_id,
             status: 3
         },
         include: [
@@ -103,7 +110,7 @@ const findGameHistoryById = async id => {
             },
             {
                 model: User,
-                attributes: ['id', 'fname', 'lname', 'hcp'],
+                attributes: ['nano_id', 'id', 'fname', 'lname', 'hcp'],
                 as: 'users',
                 include: {
                     model: ImgKeyHash,
@@ -149,9 +156,9 @@ const userHistoryGames = async (user_id, game_group_id, pageSize) => {
     let page_size = pageSize * 1;    // convert to number
     // Ongoing Games/Rounds
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
+        `select distinct a.id, a.game_id, games.nano_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
         games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
-        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
+        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = (select id from users where nano_id = :user_id) and 
         games.status = 3 and a.id < :game_group_id group by a.game_id, a.id ORDER BY a.id DESC limit :page_size`,
         {
             replacements: { user_id, game_group_id, page_size },
@@ -169,9 +176,9 @@ const userHistoryGamesSearch = async (user_id, game_group_id, pageSize, queryStr
     */
     let page_size = pageSize * 1;    // convert to number
     const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
-        `select distinct a.id, a.game_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
+        `select distinct a.id, a.game_id, games.nano_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, 
         games.status, games.createdAt, count(b.user_id) as players from user_game_group a join games on 
-        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = :user_id and 
+        a.game_id = games.id join user_game_group b on a.game_id = b.game_id where a.user_id = (select id from users where nano_id = :user_id) and 
         games.status = 3 and a.id < :game_group_id and games.name LIKE :searchPattern group by a.game_id, a.id ORDER BY a.id DESC limit :page_size`,
         {
             replacements: { user_id, game_group_id, page_size, searchPattern: `%${queryStr}%` },
@@ -205,7 +212,7 @@ const createGame = async (creator_id, game) => {
             const date = format(startDate, "yyyy-MM-dd");
             const g =  await db.sequelize.transaction( async (t) => {
                 const game = await Game.create( 
-                    { name, date, rounds, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
+                    { nano_id: nanoid(), name, date, rounds, creator_id, mode, hole_mode, status: 1, course_id, group_size: 4, current_round: 1 }, 
                     { transaction: t }
                 );
                 for (const c of contests) {
@@ -302,7 +309,7 @@ const updateGame = async (creator_id, game) => {
             await db.sequelize.transaction( async (t) => {
                 const game = await Game.findOne({
                     where: { 
-                        id: game_id,
+                        nano_id: game_id,
                         creator_id,
                         status: {
                             [Op.between] : [1, 2]
@@ -315,6 +322,8 @@ const updateGame = async (creator_id, game) => {
                     ]
                 });
                 if(game){
+                    // function scoped game_id is a nano_id (string), create block scoped to hold game id
+                    const game_id = game.id;
                     // if same hole mode
                     if(game.hole_mode == hole_mode){
                         // if not same course, migrate contests in previous course to new course of same hole (if supported by hole. If not, then delete contest)
@@ -358,7 +367,6 @@ const updateGame = async (creator_id, game) => {
                             }
                         }
                     }else {
-                        // TODO: test
                         // delete all saved contest scores regardless of course (new course or update - retaining old course)
                         await db.sequelize.query(
                             `DELETE uhcs FROM user_hole_contest_scores as uhcs WHERE uhcs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id)`,
@@ -377,6 +385,46 @@ const updateGame = async (creator_id, game) => {
                                 transaction: t,
                             }
                         );
+                        /*  If hole mode changes from front 9 to back 9 or vice versa, then delete all previously saved scores
+                            for all users. These scores are no longer relevant. But if hole mode changes from front/back 9 to 
+                            18, then preserve the scores
+                        */
+                        if( (game.hole_mode === 2 && hole_mode === 3) || (game.hole_mode === 3 && hole_mode === 2) ){
+                            await db.sequelize.query(
+                                `DELETE uhs FROM user_hole_scores as uhs WHERE uhs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id)`,
+                                {
+                                    replacements: { game_id, },
+                                    type: QueryTypes.DELETE,
+                                    transaction: t,
+                                }
+                            );
+                        }
+                        /*  if hole mode changes from 18 to front 9, then delete scores for holes 10 to 18 if any. Same for when
+                            hole mode changes from 18 to back 9
+                        */
+                        if(game.hole_mode === 1){
+                            if(hole_mode === 2){
+                                // front 9 selected, delete scores for holes between 10 - 18
+                                await db.sequelize.query(
+                                    `DELETE uhs FROM user_hole_scores as uhs WHERE uhs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id and ghc.hole_no > 9)`,
+                                    {
+                                        replacements: { game_id, },
+                                        type: QueryTypes.DELETE,
+                                        transaction: t,
+                                    }
+                                );
+                            }else {
+                                // back 9 selected, delete scores for holes between 1 - 9
+                                await db.sequelize.query(
+                                    `DELETE uhs FROM user_hole_scores as uhs WHERE uhs.game_hole_rec_id IN (SELECT id FROM game_hole_rec ghc where ghc.game_id = :game_id and ghc.hole_no < 10)`,
+                                    {
+                                        replacements: { game_id, },
+                                        type: QueryTypes.DELETE,
+                                        transaction: t,
+                                    }
+                                );
+                            }
+                        }
                     }
                     const date = format(startDate, "yyyy-MM-dd");
                     game.name = name;
@@ -391,7 +439,7 @@ const updateGame = async (creator_id, game) => {
             // due to changes may have been made to game model, refetch
             const g = await Game.findOne({
                 where: { 
-                    id: game_id,
+                    nano_id: game_id,
                     creator_id,
                     status: {
                         [Op.between] : [1, 2]
@@ -400,6 +448,25 @@ const updateGame = async (creator_id, game) => {
                 include: [
                     {
                         model: GameHoleContest,
+                    },
+                    {
+                        model: GameHoleRecords,
+                        include: [
+                            { model: HoleScores, },
+                            { model: HoleContestScores, },
+                        ]
+                    },
+                    {
+                        model: GameCodes,
+                        attributes: ['join_code', 'view_code'],
+                    },
+                    {
+                        model: User,
+                        attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp'],
+                        as: 'users',
+                        include: {
+                            model: ImgKeyHash,
+                        }
                     },
                 ]
             });
@@ -414,12 +481,12 @@ const updateGame = async (creator_id, game) => {
     }
 }
 
-const updateGroupScores = async (game_id, data) => {
+const updateGroupScores = async (game_nano_id, data) => {
     try {
         const { hole_no, scores } = data;
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_nano_id,
                 status: {
                     [Op.between] : [1, 2]
                 }
@@ -433,6 +500,7 @@ const updateGroupScores = async (game_id, data) => {
             ]
         });
         if(game){
+            const game_id = game.id;
             await db.sequelize.transaction( async (t) => {
                 const [ghc, created] = await GameHoleRecords.upsert({ game_id, hole_no, round_no: game.current_round }, { returning: true, transaction: t, });
                 let game_hole_rec_id;
@@ -482,7 +550,7 @@ const updateGroupContestScores = async (game_id, data) => {
         const { hole_no, scores, contest_id } = data;
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 status: {
                     [Op.between] : [1, 2]
                 }
@@ -496,6 +564,7 @@ const updateGroupContestScores = async (game_id, data) => {
             ]
         });
         if(game){
+            const game_id = game.id;
             await db.sequelize.transaction( async (t) => {
                 const [ghc, created] = await GameHoleRecords.upsert({ game_id, hole_no, round_no: game.current_round }, { returning: true, transaction: t, });
                 let game_hole_rec_id;
@@ -545,11 +614,12 @@ const swapPlayers = async (data) => {
     try {
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 status: 1
             },
         });
         if(game){
+            const game_id = game.id;
             return await db.sequelize.transaction( async (t) => {
                 // verify if both players exist in the game
                 const userIds = [playerOne.id, playerTwo.id];
@@ -597,11 +667,12 @@ const updateGroupSize = async ({ game_id, group_size}) => {
     try {
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 status: 1
             },
         });
         if(game){
+            const game_id = game.id;
             return await db.sequelize.transaction( async (t) => {
                 const [results, metadata] = await db.sequelize.query(
                     `SELECT COUNT(name) as group_size, name, round_no, game_id FROM user_game_group where round_no = :round_no and game_id = :game_id 
@@ -654,7 +725,7 @@ const delOngoingRound = async (creator_id, game_id) => {
     try {
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 creator_id,
                 status: {
                     [Op.between] : [1, 2]
@@ -662,6 +733,7 @@ const delOngoingRound = async (creator_id, game_id) => {
             },
         });
         if(game){
+            const game_id = game.id;
             await db.sequelize.transaction( async (t) => {
                 // delete all attached contests to game
                 await db.sequelize.query(
@@ -712,7 +784,7 @@ const addPlayers = async (prop) => {
         }
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 // creator_id,
                 status: {
                     [Op.between] : [1, 2]
@@ -769,7 +841,7 @@ const updatePlayerGroup = async (creator_id, prop) => {
         }
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 creator_id,
                 status: 1   //  can only change player group if game isn't started yet
             },
@@ -790,7 +862,7 @@ const updatePlayerGroup = async (creator_id, prop) => {
                 await  db.sequelize.query(
                     `UPDATE user_game_group SET name = :group_name WHERE game_id = :game_id and user_id = :player_id and round_no = :round`,
                     {
-                        replacements: { player_id, round: game.current_round, group_name: groupProp.group_name, game_id },
+                        replacements: { player_id, round: game.current_round, group_name: groupProp.group_name, game_id: game.id },
                         type: QueryTypes.UPDATE, // Specify the query type
                         transaction: t,
                     }
@@ -811,7 +883,7 @@ const removePlayer = async (creator_id, { player_id, game_id }) => {
     try {
         const game = await Game.findOne({
             where: { 
-                id: game_id,
+                nano_id: game_id,
                 creator_id,
                 status: {
                     [Op.between] : [1, 2]
@@ -819,6 +891,7 @@ const removePlayer = async (creator_id, { player_id, game_id }) => {
             },
         });
         if(game){
+            const game_id = game.id;
             await db.sequelize.transaction( async (t) => {
                 // Remove user from group
                 await db.sequelize.query(
@@ -890,7 +963,7 @@ const updateGameSpices = async (creator_id, game) => {
         });
         return await db.sequelize.transaction( async (t) => {
             const game = await Game.findOne({
-                where: { creator_id, course_id, id: game_id },
+                where: { creator_id, course_id, nano_id: game_id },
                 include: [
                     {
                         model: GameHoleContest,
@@ -898,6 +971,7 @@ const updateGameSpices = async (creator_id, game) => {
                 ]
             });
             if(game){
+                const game_id = game.id;
                 // variable to hold newly added game hole contests to be sent to front-end for ui update
                 const ghcArr = [];
                 /*  Because of the possibility of contests changed from one hole to the other, or contests removed from holes, create 2 maps to hold

@@ -21,8 +21,9 @@ const { decrypt } = require('../utils/crypto-helper');
 
 const findOngoingRoundById = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await gameService.findOngoingRoundById(req.params.id));
+        // id passed is nano_id
+        routeStringMiscParamSchema.validateSync(req.params.nano_id);
+        res.status(200).json(await gameService.findOngoingRoundById(req.params.nano_id));
     } catch (error) {
         return res.status(404).json({'message': error.message});
     }
@@ -30,8 +31,9 @@ const findOngoingRoundById = async (req, res) => {
 
 const findGameHistoryById = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await gameService.findGameHistoryById(req.params.id));
+        // id passed is nano_id
+        routeStringMiscParamSchema.validateSync(req.params.nano_id);
+        res.status(200).json(await gameService.findGameHistoryById(req.params.nano_id));
     } catch (error) {
         return res.status(404).json({'message': error.message});
     }
@@ -40,7 +42,7 @@ const findGameHistoryById = async (req, res) => {
 const userHistoryGames = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
-        routePositiveNumberMiscParamSchema.validateSync(req.query.player_id);
+        routeStringMiscParamSchema.validateSync(req.query.player_id);
         routeStringMiscParamSchema.validateSync(req.query.cursor);
         const game_group_id = decrypt(req.query.cursor);
         res.status(200).json(await gameService.userHistoryGames(req.query.player_id, game_group_id, req.query.page_size));
@@ -54,7 +56,7 @@ const userHistoryGamesSearch = async (req, res) => {
         routeStringMiscParamSchema.validateSync(req.query.queryStr);
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
         routeStringMiscParamSchema.validateSync(req.query.cursor);
-        routePositiveNumberMiscParamSchema.validateSync(req.query.player_id);
+        routeStringMiscParamSchema.validateSync(req.query.player_id);
         const game_group_id = decrypt(req.query.cursor);
         res.status(200).json(await gameService.userHistoryGamesSearch(req.query.player_id, game_group_id, req.query.page_size, req.query.queryStr));
     } catch (error) {
@@ -130,6 +132,7 @@ const updatePlayerGroup = async (req, res) => {
 };
 
 const removePlayer = async (req, res) => {
+    // NOTE: only game creator can delete a player
     try {
         const id = decrypt(req.whom.id);
         const client = await findSubById(id);
@@ -166,7 +169,7 @@ const updateGroupSize = async (req, res) => {
 
 const updateGroupScores = async (req, res) => {
     try {
-        res.status(200).json(await gameService.updateGroupScores(req.params.id, req.body));
+        res.status(200).json(await gameService.updateGroupScores(req.params.nano_id, req.body));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -193,12 +196,12 @@ const updateGameSpices = async (req, res) => {
     }
 };
 
-router.route('/rounds/ongoing/:id').get( verifyAccessToken, findOngoingRoundById );
-router.route('/rounds/history/:id').get( verifyAccessToken, findGameHistoryById );
-router.route('/rounds/ongoing/:id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
+router.route('/rounds/ongoing/:nano_id').get( verifyAccessToken, findOngoingRoundById );
+router.route('/rounds/history/:nano_id').get( verifyAccessToken, findGameHistoryById );
+router.route('/rounds/ongoing/:nano_id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
 router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );
-router.route('/rounds/ongoing/:id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
+router.route('/rounds/ongoing/:nano_id/players/group/scores').post( verifyAccessToken, validate(playerScoresSchema), updateGroupScores );
 router.route('/rounds/ongoing/:id/players/group/contest/scores').post( verifyAccessToken, validate(playerContestScoresSchema), updateGroupContestScores );
 router.route('/users/rounds/history').get( verifyAccessToken, userHistoryGames );
 router.route('/users/rounds/history/query').get( verifyAccessToken, userHistoryGamesSearch );

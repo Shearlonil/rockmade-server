@@ -15,8 +15,7 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull:false,
             isEmail: true,
-            //  email must be unique
-            unique: true
+            unique:'email',
         },
         otp: {
             // refresh token for this user
@@ -28,7 +27,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'email_otp',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        // indexes: [{ unique: true, fields: ["email"] }],
     });  
     return MailOTP;
 };

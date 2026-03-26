@@ -28,8 +28,8 @@ const findById = async (req, res) => {
 
 const playedCourses = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await clientService.playedCourses(req.params.id));
+        routeStringMiscParamSchema.validateSync(req.params.nano_id);
+        res.status(200).json(await clientService.playedCourses(req.params.nano_id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -37,8 +37,8 @@ const playedCourses = async (req, res) => {
 
 const playerInfo = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json(await clientService.playerInfo(req.params.id));
+        routeStringMiscParamSchema.validateSync(req.params.nano_id);
+        res.status(200).json(await clientService.playerInfo(req.params.nano_id));
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -311,10 +311,10 @@ const search = async (req, res) => {
     }
 }
 
-const gameSearch = async (req, res) => {
+const gameUserSearch = async (req, res) => {
     try {
         routeStringMiscParamSchema.validateSync(req.query.str);
-        res.status(200).json( await clientService.gameSearch(req.query) );
+        res.status(200).json( await clientService.gameUserSearch(req.query) );
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -358,12 +358,12 @@ router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.cl
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );
 router.route('/dashboard').get( verifyAccessToken, dashboardInfo );
-router.route('/dashboard/games/player/:id').get( verifyAccessToken, playerInfo );
-router.route('/courses/played/:id').get( verifyAccessToken, playedCourses );
+router.route('/dashboard/games/player/:nano_id').get( verifyAccessToken, playerInfo );
+router.route('/courses/played/:nano_id').get( verifyAccessToken, playedCourses );
 router.route('/dp/:filename').get( getImg );
 router.route('/query').get( verifyAccessToken, search );
 router.route('/players').get( verifyAccessToken, playerSearch );
 router.route('/players/query').get( verifyAccessToken, playerQryStrSearch );
-router.route('/game/query').get( verifyAccessToken, gameSearch );
+router.route('/game/query').get( verifyAccessToken, gameUserSearch );
 
 module.exports = router;

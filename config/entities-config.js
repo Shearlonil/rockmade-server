@@ -385,6 +385,17 @@ db.connect = async () => {
             and then performs the necessary changes in the table to make it match the model.
         */
         // await sequelize.sync( { alter: true } );
+        /*  Too many keys specified in sequelize sync   
+            ref:    https://medium.com/@xmalikfajar/too-many-keys-specified-in-sequelize-sync-db60cf74b2ab
+                    https://stackoverflow.com/questions/5021586
+                    https://stackoverflow.com/questions/48637184
+            
+            SELECT CONCAT('ALTER TABLE {your_table / your_model} ',
+            GROUP_CONCAT(CONCAT('DROP INDEX ', index_name) SEPARATOR ', '), ';')
+            FROM information_schema.statistics
+            WHERE table_name = '{your_table / your_model}'
+            AND index_name LIKE '{your_indexes}_%';
+            */
     } catch (error) {
         console.error('Unable to connect to the database:', error);
     }

@@ -11,12 +11,16 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying hole.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  contest name must be unique
-            unique: true
         },
         status: {
             type: Sequelize.BOOLEAN,
@@ -27,7 +31,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'contests',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return Contests;
 };

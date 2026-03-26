@@ -10,6 +10,7 @@ const app = express();
 const corsOptions = require('./config/cors-options');
 const db = require('./config/entities-config');
 const setUp = require('./api-services/app-setup-service');
+const appUpgrade = require('./api-services/app-upgrade-service');
 const credentials = require('./middleware/credentials');
 
 db.connect();
@@ -43,6 +44,7 @@ const limiter = rateLimit({
 */
 // setup default admin account
 // setUp();
+// appUpgrade();
 
 // ROUTES
 // app.use("/api/", limiter);
@@ -54,6 +56,7 @@ app.use('/countries', require('./controllers/country-controller'));
 app.use('/users', require('./controllers/client-controller'));
 app.use('/games', require('./controllers/game-controller'));
 app.use('/subscriptions', require('./controllers/sub-plans-controller'));
+app.use('/transactions', require('./controllers/transaction-controller'));
 
 /*  ref: https://stackoverflow.com/questions/27928372/react-router-urls-dont-work-when-refreshing-or-writing-manually
     check neeraj-dixit27's solution on the above thread

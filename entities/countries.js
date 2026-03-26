@@ -11,12 +11,20 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying user.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+            //  nano id must be unique
+            // unique: 'nano_id'
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
             //  country name must be unique
-            unique: true
+            // unique: 'name'
         },
         status: {
             type: Sequelize.BOOLEAN,
@@ -27,7 +35,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'countries',
         timestamps: false,
         createdAt: false,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return Country;
 };

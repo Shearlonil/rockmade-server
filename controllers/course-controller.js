@@ -48,10 +48,10 @@ const updateCourse = async (req, res) => {
     }
 };
 
-const findById = async (req, res) => {
+const findByNanoId = async (req, res) => {
     try {
-        routePositiveNumberMiscParamSchema.validateSync(req.params.id);
-        res.status(200).json( await courseService.findById(req.params.id) );
+        routeStringMiscParamSchema.validateSync(req.params.nano_id);
+        res.status(200).json( await courseService.findByNanoId(req.params.nano_id) );
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -182,7 +182,7 @@ router.route('/onboarding/active').get( onboardingCoursesInit );
 router.route('/onboarding/query').get( onboardingCourseSearch );
 router.route('/active/init/:pageSize').get( verifyAccessToken, activeCoursesPageInit );
 router.route('/inactive/init/:pageSize').get( verifyAccessToken, inactiveCoursesPageInit );
-router.route('/search/:id').get( verifyAccessToken, findById );
+router.route('/search/:nano_id').get( verifyAccessToken, findByNanoId );
 router.route('/search/page/:pageNumber').get( verifyAccessToken, paginateFetch );
 router.route('/query').get( verifyAccessToken, search );
 

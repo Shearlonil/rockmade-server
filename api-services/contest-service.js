@@ -1,5 +1,6 @@
 const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
+const { nanoid } = require('nanoid');
 
 const Contest = db.contests;
 const Hole = db.holes;
@@ -11,7 +12,7 @@ const findById = async (id) => {
 
 const create = async (creator_id, name) => {
     try {
-        return await Contest.create({ name, creator_id }, { returning: true, });
+        return await Contest.create({ nano_id: nanoid(), name, creator_id }, { returning: true, });
     } catch (error) {
         // If the execution reaches this line, an error occurred.
         // The transaction has already been rolled back automatically by Sequelize!

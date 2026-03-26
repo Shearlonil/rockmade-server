@@ -33,9 +33,7 @@ const schema = yup.object().shape({
 });
 
 const updateSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     name: yup.string().required("Name is required!"),
     course_id: yup
         .number().integer().min(1, "Invalid Golf Course specified")
@@ -49,9 +47,7 @@ const updateSchema = yup.object().shape({
 });
 
 const spicesUpdateSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     course_id: yup
         .number().integer().min(1, "Invalid Golf Course specified")
         .required("Golf Course is required!"),
@@ -62,9 +58,7 @@ const spicesUpdateSchema = yup.object().shape({
 });
 
 const addPlayerSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     currentGroupSize: yup
         .number().integer().min(2, "Invalid group size specified").max(5, "Invalid group size specified")
         .required("Group size is required!"),
@@ -87,18 +81,14 @@ const playerContestScoresSchema = yup.object().shape({
 });
 
 const playerRemovalSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     player_id: yup
         .number().integer().min(1, "Invalid Player specified")
         .required("Player is required!"),
 });
 
 const playerGroupChangeSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     player_id: yup
         .number().integer().min(1, "Invalid Player specified")
         .required("Player is required!"),
@@ -112,9 +102,7 @@ const playerGroupChangeSchema = yup.object().shape({
 });
 
 const playersGroupSwapSchema = yup.object().shape({
-    game_id: yup
-        .number().integer().min(1, "Invalid Game specified")
-        .required("Game is required!"),
+    game_id: yup.string().required("Game is required!"),
     playerOne: yup.object().shape({
         id: yup.number().integer().min(1, "Invalid Source Player specified").required("Source Player is required"),
         group_name: yup

@@ -24,8 +24,7 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
-            //  token must be unique
-            unique: true
+            unique:'token',
         },
         user_type: {
             /*  Descriminator column for user => Staff (S) or Client/Customer (C)   */
@@ -38,7 +37,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'refresh_tokens',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        // indexes: [{ unique: true, fields: ["token"] }],
     });  
     return RefreshTokens;
 };

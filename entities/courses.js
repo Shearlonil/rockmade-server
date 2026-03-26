@@ -11,12 +11,20 @@ module.exports = (sequelize, Sequelize) => {
             // For uniquely identifying courses.
             primaryKey:true
         },
+        nano_id:{
+            type:Sequelize.STRING,
+            // nano_id can not be null.
+            allowNull:false,
+            notEmpty:true,
+            //  course nano id must be unique
+            // unique: 'nano_id'
+        },
         name: {
             type: Sequelize.STRING,
             allowNull:false,
             notEmpty: true,
             //  course name must be unique
-            unique: true
+            // unique: 'name'
         },
         no_of_holes: {
             type: Sequelize.INTEGER,
@@ -37,7 +45,8 @@ module.exports = (sequelize, Sequelize) => {
         tableName: 'courses',
         timestamps: true,
         createdAt: true,
-        updatedAt: false
+        updatedAt: false,
+        indexes: [{ unique: true, fields: ["name", 'nano_id'] }],
     });  
     return Courses;
 };

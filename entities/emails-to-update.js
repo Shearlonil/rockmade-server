@@ -3,27 +3,26 @@ module.exports = (sequelize, Sequelize) => {
     */
     const EmailsToUpdate = sequelize.define('EmailsToUpdate', {
         nano_id:{
-            // Sequelize module has INTEGER Data_Type.
             type:Sequelize.STRING,
             // id can not be null.
             allowNull:false,
             notEmpty:true,
-            // For uniquely identifying hole.
+            // For uniquely identifying this model.
             primaryKey:true
         },
         current_email: {
             type: Sequelize.STRING,
             allowNull:false,
             isEmail: true,
-            //  email must be unique
-            unique: true
+            //  current email must be unique
+            unique: 'current_email'
         },
         new_email: {
             type: Sequelize.STRING,
             allowNull:false,
             isEmail: true,
-            //  email must be unique
-            unique: true
+            //  new email must be unique
+            unique: 'new_email'
         },
         user_type: {
             /*  Descriminator column for user => Staff (S) or Client/Customer (C)   */
