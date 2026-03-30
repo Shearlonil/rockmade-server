@@ -47,10 +47,10 @@ const findByNanoId = async (nano_id) => {
                         as: 'contests',
                         through: {
                             where: {
-                                // course_id: {
-                                //     [Op.eq]: db.sequelize.literal(`(select id from courses where courses.nano_id = ${nano_id})`)
-                                // },
-                                course_id: db.sequelize.literal(`(select id from courses where courses.nano_id = ${nano_id})`),
+                                course_id: {
+                                    // NOTE: the placeholder is placed in quotes to qualify it as a string value, else Unknown Column error would be thrown
+                                    [Op.eq]: db.sequelize.literal(`(select id from courses where courses.nano_id = '${nano_id}')`)
+                                },
                             }
                         },
                     }

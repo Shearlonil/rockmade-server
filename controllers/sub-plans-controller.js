@@ -59,7 +59,7 @@ const updatePlanBenefit = async (req, res) => {
     }
 };
 
-router.route('/membership/plans').get( verifyAccessToken, getMembershipPlans );
+router.route('/membership/plans').get( getMembershipPlans );
 router.route('/membership/plans/update').put( verifyAccessToken, validate(subPlanSchema), updatePlan );
 router.route('/membership/plans/desc/update').put( verifyAccessToken, validate(updateBenefitSchema), updatePlanBenefit );
 router.route('/membership/plans/desc/remove').put( verifyAccessToken, validate(updateBenefitSchema), removePlanBenefit );

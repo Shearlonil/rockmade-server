@@ -518,8 +518,7 @@ const playerInfo = async (nano_id) => {
         ]
     });
     if (user) {
-        // TODO: LAST 10 GAMES PLAYED..... USE DESC OR ANY OTHER SYNTAX
-        // Recent/last 5 games played
+        // Recent/last 10 games played
         const [recentGamesResult, recentGamesMetadata] = await db.sequelize.query(
             `select distinct a.id, a.game_id, games.nano_id, games.name, games.date, games.rounds, games.mode, games.hole_mode, games.status, 
             count(b.user_id) as players from user_game_group a join games on a.game_id = games.id join user_game_group 

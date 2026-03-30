@@ -20,9 +20,9 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true,
         },
-        // descriminator column for the plan linked up with this subscription
+        // descriminator column for the plan linked up with this subscription: M => Membership, T => Training
         plan_type: {
-            type: Sequelize.STRING,
+            type: Sequelize.CHAR(1),
             allowNull:false,
             notEmpty: true,
         },

@@ -133,12 +133,6 @@ const onboardingCourseSearch = async (req, res) => {
 
 const activeCoursesPageInit = async (req, res) => {
     try {
-        // TODO: delete comments
-        // Only Staff memebers are allowed to view this end-point
-        // const mode = decrypt(req.whom.mode);
-        // if(mode !== '0'){
-        //     return res.sendStatus(404);
-        // }
         routePositiveNumberMiscParamSchema.validateSync(req.params.pageSize);
         res.status(200).json(await courseService.activeCoursesPageInit(req.params.pageSize));
     } catch (error) {

@@ -347,7 +347,6 @@ const updateGame = async (creator_id, game) => {
                                                 transaction: t,
                                             }
                                         );
-                                        // TODO: test
                                         /*  delete previously saved scores for players regarding this unsupported contest for hole in new course. To do this, remember user_hole_contest_scores
                                             is assocatied to only game_hole_record via field game_hole_rec_id. This means we need to get the game_hole_record first to get it's id to use
                                             in the delete query. The game_hole_record can be fetched using the game id and hole_no */

@@ -44,7 +44,7 @@ module.exports = (sequelize, Sequelize, DataTypes) => {
             notEmpty: true
         },
         duration_months: {
-            /*  in days */
+            /*  in months */
             type: Sequelize.INTEGER,
             allowNull:false,
             notEmpty: true
