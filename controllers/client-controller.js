@@ -239,6 +239,16 @@ const dpUpload = async (req, res) => {
     }
 };
 
+const logoutAllAccounts = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        await clientService.logoutAllAccounts(id);
+        res.sendStatus(200);
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
 const updatePassword = async (req, res) => {
     try {
         // First thing First: validate current and new passwords in request body
@@ -353,6 +363,7 @@ router.route('/profile/pw/update').put( verifyAccessToken, validate(pw_schema), 
 router.route('/profile/email/update').put( verifyAccessToken, validate(email_schema), markEmailForUpdate );
 router.route('/profile/email/update/:nano_id').get( verifyAccessToken, updateEmail );
 router.route('/profile/dp/update').post(verifyAccessToken, multerImgUpload, dpUpload );
+router.route('/accounts/logout').post(verifyAccessToken, multerImgUpload, logoutAllAccounts );
 router.route('/pw/reset').put( resetPassword );
 router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );

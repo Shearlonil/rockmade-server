@@ -79,16 +79,18 @@ db.subscriptions.belongsTo(db.trainingPlans, {
 db.subscriptions.addHook('afterFind', findResult => {
     if (!Array.isArray(findResult)) findResult = [findResult];
     for (const instance of findResult) {
-        if (instance.plan_type === 'subscribe' && instance.subscriptionPlans !== undefined) {
-            instance.plan = instance.subscriptionPlans;
-        } else if (instance.plan_type === 'training' && instance.trainingPlans !== undefined) {
-            instance.plan = instance.trainingPlans;
+        if(instance){
+            if (instance.plan_type === 'M' && instance.subscriptionPlans !== undefined) {
+                instance.plan = instance.subscriptionPlans;
+            } else if (instance.plan_type === 'T' && instance.trainingPlans !== undefined) {
+                instance.plan = instance.trainingPlans;
+            }
+            // To prevent mistakes:
+            delete instance.subscriptionPlans;
+            delete instance.dataValues.subscriptionPlans;
+            delete instance.trainingPlans;
+            delete instance.dataValues.trainingPlans;
         }
-        // To prevent mistakes:
-        delete instance.subscriptionPlans;
-        delete instance.dataValues.subscriptionPlans;
-        delete instance.trainingPlans;
-        delete instance.dataValues.trainingPlans;
     }
 });
 
@@ -278,7 +280,7 @@ db.contests.belongsTo(db.staff, {
 db.users.hasMany(db.games, {
     as: 'creator',
     foreignKey: {
-        // also set the foreign key name here to avoid sequelize adding column CourseId
+        // also set the foreign key name here to avoid sequelize adding column CreatorId
         name: 'creator_id',
         allowNull: false,
     }
@@ -286,6 +288,22 @@ db.users.hasMany(db.games, {
 db.games.belongsTo(db.users, {
     foreignKey: {
         name: 'creator_id',
+        allowNull: false,
+    }
+});
+
+// OneToMany relationship between users and subscriptions (users can subscribe multiple times)
+db.users.hasMany(db.subscriptions, {
+    as: 'subscriber',
+    foreignKey: {
+        // also set the foreign key name here to avoid sequelize adding column subscriberId
+        name: 'subscriber_id',
+        allowNull: false,
+    }
+});
+db.subscriptions.belongsTo(db.users, {
+    foreignKey: {
+        name: 'subscriber_id',
         allowNull: false,
     }
 });

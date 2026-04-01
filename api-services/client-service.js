@@ -19,6 +19,7 @@ const MailOTP = db.mailOTP;
 const ImgKeyHash = db.imgKeyHash;
 const EmailsToUpdate = db.emailsToUpdate;
 const RefreshToken = db.refreshTokens;
+const Subscriptions = db.subscriptions;
 
 const findActiveById = async id => {
     return await User.findByPk(id, {
@@ -59,7 +60,7 @@ const findSubById = async id => {
 };
 
 const findByEmail = async email => {
-    return await User.findOne({
+    const user = await User.findOne({
         where: { email },
         include: [
             {
@@ -67,9 +68,18 @@ const findByEmail = async email => {
             },
             {
                 model: ImgKeyHash,
-            }
+            },
         ]
     });
+    const [lastSub, lastSubMetadata] = await db.sequelize.query(
+        `select sub.plan_id, sub.createdAt, sp.name from subscriptions sub join sub_plans sp on sp.id = sub.plan_id where 
+        sub.subscriber_id = :subscriber_id and sub.used = true ORDER BY sub.createdAt DESC limit 1`,
+        {
+            replacements: { subscriber_id: user.id },
+        }
+    );
+    user.lastSub = lastSub[0];
+    return user;
 };
 
 const updateEmail = async (user_id, nano_id) => {
@@ -166,6 +176,8 @@ const markEmailForUpdate = async (id, email) => {
         throw new Error(error.message); // rethrow the error for front-end 
     }
 }
+
+const logoutAllAccounts = async (id) => {};
 
 const updatePassword = async (id, data) => {
     const { pw, current_pw } = data;
@@ -784,6 +796,7 @@ module.exports = {
     updateHCP,
     markEmailForUpdate,
     updateEmail,
+    logoutAllAccounts,
     updatePassword,
     resetPassword,
     changePassword,

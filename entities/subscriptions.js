@@ -38,6 +38,12 @@ module.exports = (sequelize, Sequelize) => {
             allowNull:false,
             notEmpty: true
         },
+        // field to determine where subscription period has been added to user's subscription.
+        used: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false,
+            allowNull:false,
+        },
     }, {
         tableName: 'subscriptions',
         timestamps: true,

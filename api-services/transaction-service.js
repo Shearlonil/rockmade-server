@@ -2,11 +2,13 @@ const db = require('../config/entities-config');
 const axios = require('axios');
 const crypto = require('crypto');
 const numeral = require('numeral');
-const { subDays, addDays, format } = require('date-fns');
+const { compareAsc, add, format } = require('date-fns');
 
 const SubscriptionPlans = db.subscriptionPlans;
 const TrainingPlans = db.trainingPlans;
 const User = db.users;
+const Course = db.courses;
+const ImgKeyHash = db.imgKeyHash;
 const Subscriptions = db.subscriptions;
 
 const initializeMembershipTransaction = async (user_id, plan_nano_id) => {
@@ -25,9 +27,9 @@ const initializeTrainingTransaction = async (user_id, plan_nano_id) => {
     return await finishPaymentInitialization(user_id, plan, 'Training');
 };
 
-const verifySubTransaction = async (user_id, reqQuery) => {
+const verifySubTransaction = async (user_id, paystackRef) => {
     try {
-        const response = await axios.get(`${process.env.PAYSTACK_TRANSACTION_VERIFICATION_URL}${reqQuery}`,
+        const response = await axios.get(`${process.env.PAYSTACK_TRANSACTION_VERIFICATION_URL}${paystackRef}`,
             {
                 headers: {
                     Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
@@ -35,16 +37,59 @@ const verifySubTransaction = async (user_id, reqQuery) => {
             },
         );
         if(response.data.data.status === 'success'){
-            const client = await User.findByPk(id);
+            const client = await User.findByPk(user_id, {
+                where: {status: true},
+                attributes: ['id', 'nano_id', 'fname', 'lname', 'sub_expiration', 'email', 'gender', 'dob', 'status', 'hcp', ],
+                include: [
+                    {
+                        model: Course,
+                    },
+                    {
+                        model: ImgKeyHash,
+                    },
+                ]
+            });
+            const user_sub = await Subscriptions.findOne({
+                where: {
+                    paystack_transaction_ref: paystackRef,
+                    used: false,
+                    subscriber_id: user_id,
+                }
+            });
+            if(!user_sub){
+                throw new Error("Invalid Transaction Reference");
+            }
             // find product in db 
             const planType = response.data.data.metadata.custom_fields.find(cf => cf.variable_name === 'plan_type');
             if(planType.value.toUpperCase() === 'MEMBERSHIP'){
                 const sub = await SubscriptionPlans.findByPk(response.data.data.metadata.product_id);
                 // check current user sub expiration: if expired, calculate next expiraton date from today, else add new sub duration to sub expiration
-                const yesterday = subDays(new Date(), 1); // Subtracts 1 day from today to use as sub_expiration
-                const birthDay = format(yesterday, "yyyy-MM-dd");
+                if(compareAsc(new Date(), new Date(client.sub_expiration)) >= 0){
+                    // current date (date method is called, which coult be today) is greater/equal to user's sub expiration date
+                    const result = add(new Date(), { months: sub.duration_months });
+                    client.sub_expiration = format(result, "yyyy-MM-dd");
+                }else {
+                    // user's expiration date is in the future.
+                    const result = add(new Date(client.sub_expiration), { months: sub.duration_months });
+                    client.sub_expiration = format(result, "yyyy-MM-dd");
+                }
             }
-
+            // update used field for this subsciption
+            user_sub.used = true;
+            await db.sequelize.transaction( async (t) => {
+                await client.save({ transaction: t });
+                await user_sub.save({ transaction: t });
+            });
+            // find subscribed plan to use in jwt
+            const plan = await SubscriptionPlans.findOne({
+                where: { 
+                    id: user_sub.plan_id 
+                },
+                attributes: ['name'],
+            });
+            const lastSub = { name: plan.name, createdAt: user_sub.createdAt };
+            client.lastSub = lastSub;
+            return client;
         }
         return response.data;
     } catch (error) {
@@ -60,12 +105,14 @@ const webhook = async (paystackData, paystack_signature) => {
             // Do something with event
             switch (paystackData.event) {
                 case 'charge.success':
+                    const user = await User.findOne({ where: { email: paystackData.data.customer.email } });
                     const planType = paystackData.data.metadata.custom_fields.find(cf => cf.variable_name === 'plan_type');
                     await Subscriptions.create({
                         plan_id: paystackData.data.metadata.product_id,
                         plan_type: planType.value.toUpperCase() === 'MEMBERSHIP' ? 'M' : 'T',
                         paystack_transaction_ref: paystackData.data.reference,
-                        amount: paystackData.data.amount,
+                        amount: numeral(paystackData.data.amount).divide(100).value(),
+                        subscriber_id: user.id,
                     });
             }
         }

@@ -3,7 +3,6 @@ const router = express.Router();
 
 const transactionService = require('../api-services/transaction-service');
 const { verifyAccessToken, createClientAccessToken } = require('../middleware/jwt');
-const validate = require('../middleware/schemer-validator');
 const { decrypt, encrypt } = require('../utils/crypto-helper');
 const { routePositiveNumberMiscParamSchema, routeStringMiscParamSchema, routeBooleanParamSchema } = require('../yup-schemas/request-params');
 
@@ -36,6 +35,7 @@ const initializeTrainingTransaction = async (req, res) => {
 const webhook = async (req, res) => {
     try {
         await transactionService.webhook(req.body, req.headers['x-paystack-signature']);
+        // Return a 200 response to acknowledge receipt of the event
         return res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
@@ -48,7 +48,7 @@ const callback = async (req, res) => {
         /*  Redirecting ref:
             https://stackoverflow.com/questions/19035373/how-do-i-redirect-in-expressjs-while-passing-some-context
         */
-        return res.status(301).redirect(`http://localhost:5173/dashboard/profile/transactions/verify/${req.query.reference}`);
+        return res.status(301).redirect(`http://localhost:5173/dashboard/client/profile/transactions/verify/${req.query.reference}`);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }
@@ -57,16 +57,16 @@ const callback = async (req, res) => {
 const verifySubTransaction = async (req, res) => {
     try {
         const id = decrypt(req.whom.id);
-        return res.status(200).json(await transactionService.verifySubTransaction(id, req.query.reqQuery));
-        // const updatedClient = await transactionService.verifySubTransaction(req.query);
+        // return res.status(200).json(await transactionService.verifySubTransaction(id, req.query.reqQuery));
+        const updatedClient = await transactionService.verifySubTransaction(id, req.query.reqQuery);
         // set mode to use in refresh token (specifies staff or client, 0 for Staff, 1 for Client)
-        // updatedClient.mode = encrypt('1');
+        updatedClient.mode = encrypt('1');
         // create jwt access token
-        // const accessToken = createClientAccessToken(updatedClient);
+        const accessToken = createClientAccessToken(updatedClient);
         //  Because of cors, only some of the headers will be accessed by the browser. [Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma]
-        // res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
-        // res.setHeader('authorization', 'Bearer ' + accessToken);
-        // return res.status(301).redirect(`http://localhost:5173/dashboard`);
+        res.setHeader("Access-Control-Expose-Headers", "X-Suggested-Filename, authorization");
+        res.setHeader('authorization', 'Bearer ' + accessToken);
+        res.sendStatus(200);
     } catch (error) {
         return res.status(400).json({'message': error.message});
     }

@@ -23,7 +23,7 @@ const findStaffByEmail = async email => {
 };
 
 const findByEmail = async email => {
-    return await User.findOne({
+    const user = await User.findOne({
         where: { email },
         include: [
             {
@@ -34,6 +34,16 @@ const findByEmail = async email => {
             }
         ]
     });
+    // attach last user sub for use in jwt token
+    const [lastSub, lastSubMetadata] = await db.sequelize.query(
+        `select sub.plan_id, sub.createdAt, sp.name from subscriptions sub join sub_plans sp on sp.id = sub.plan_id where 
+        sub.subscriber_id = :subscriber_id and sub.used = true ORDER BY sub.createdAt DESC limit 1`,
+        {
+            replacements: { subscriber_id: user.id },
+        }
+    );
+    user.lastSub = lastSub[0];
+    return user;
 };
 
 module.exports = {
