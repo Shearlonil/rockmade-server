@@ -57,6 +57,7 @@ app.use('/users', require('./controllers/client-controller'));
 app.use('/games', require('./controllers/game-controller'));
 app.use('/subscriptions', require('./controllers/sub-plans-controller'));
 app.use('/transactions', require('./controllers/transaction-controller'));
+app.use('/terms', require('./controllers/terms-and-agreement-controller'));
 
 /*  ref: https://stackoverflow.com/questions/27928372/react-router-urls-dont-work-when-refreshing-or-writing-manually
     check neeraj-dixit27's solution on the above thread
