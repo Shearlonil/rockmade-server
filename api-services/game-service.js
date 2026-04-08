@@ -608,6 +608,31 @@ const updateGroupContestScores = async (game_id, data) => {
     }
 };
 
+const endGame = async (creator_id, game_nano_id) => {
+    try {
+        const game = await Game.findOne({
+            where: { 
+                nano_id: game_nano_id,
+                creator_id,
+                status: {
+                    [Op.between] : [1, 2]
+                }
+            },
+        });
+        if(game){
+            // change game status to 'completed'
+            game.status = 3;
+            await game.save();
+        }else {
+            throw new Error('Invalid Operation!.');
+        }
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 const swapPlayers = async (data) => {
     const { game_id, playerOne, playerTwo} = data;
     try {
@@ -1072,6 +1097,7 @@ module.exports = {
     updateGame,
     updateGroupScores,
     updateGroupContestScores,
+    endGame,
     swapPlayers,
     updateGroupSize,
     delOngoingRound,

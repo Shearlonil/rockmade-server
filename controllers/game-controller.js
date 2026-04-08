@@ -175,6 +175,16 @@ const updateGroupScores = async (req, res) => {
     }
 };
 
+const endGame = async (req, res) => {
+    try {
+        const id = decrypt(req.whom.id);
+        // res.sendStatus(200);
+        res.status(200).json(await gameService.endGame(id, req.params.nano_id));
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const updateGroupContestScores = async (req, res) => {
     try {
         res.status(200).json(await gameService.updateGroupContestScores(req.params.id, req.body));
@@ -196,8 +206,9 @@ const updateGameSpices = async (req, res) => {
     }
 };
 
-router.route('/rounds/ongoing/:nano_id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/history/:nano_id').get( verifyAccessToken, findGameHistoryById );
+router.route('/rounds/ongoing/:nano_id').get( verifyAccessToken, findOngoingRoundById );
+router.route('/rounds/ongoing/:nano_id/end').post( verifyAccessToken, endGame );
 router.route('/rounds/ongoing/:nano_id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );
 router.route('/rounds/ongoing/player/remove').put( verifyAccessToken, validate(playerRemovalSchema), removePlayer );
 router.route('/rounds/ongoing/player/group/change').put( verifyAccessToken, validate(playerGroupChangeSchema), updatePlayerGroup );

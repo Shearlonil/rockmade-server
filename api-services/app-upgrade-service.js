@@ -1,12 +1,15 @@
 const db = require('../config/entities-config');
 const { nanoid } = require('nanoid');
 
+const { membership_plans } = require('../utils/default-entries');
+
 const Country = db.countries;
 const Contests = db.contests;
 const Courses = db.courses;
 const Games = db.games;
 const Staff = db.staff;
 const SubscriptionPlan = db.subscriptionPlans;
+const SubPlanBenefits = db.subPlanBenefits;
 const TrainingPlan = db.trainingPlans;
 const Users = db.users;
 
@@ -26,6 +29,12 @@ const upgrade = async () => {
         for(const model of all){
             model.nano_id = nanoid();
             await model.save({transaction: t});
+        }
+        for (const el of membership_plans) {
+            const plan = await SubscriptionPlan.create({ nano_id: nanoid(), name: el.name, amount: el.amount, duration_months: el.duration, desc: el.desc, popular: el.popular }, { transaction: t });
+            for (const benefit of el.benefits) {
+                await SubPlanBenefits.create({ desc: benefit, plan_id: plan.id }, { transaction: t });
+            }
         }
     });
 };
