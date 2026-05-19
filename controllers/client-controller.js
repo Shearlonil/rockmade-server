@@ -281,6 +281,15 @@ const resetPassword = async (req, res) => {
     }
 }
 
+// fetching top 3-5 golf players in home page
+const topPlayers = async (req, res) => {
+    try {
+        res.status(200).json(await clientService.topPlayers());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+}
+
 // for use by players to search other players
 const playerSearch = async (req, res) => {
     try {
@@ -365,6 +374,7 @@ router.route('/profile/email/update/:nano_id').get( verifyAccessToken, updateEma
 router.route('/profile/dp/update').post(verifyAccessToken, multerImgUpload, dpUpload );
 router.route('/accounts/logout').post(verifyAccessToken, multerImgUpload, logoutAllAccounts );
 router.route('/pw/reset').put( resetPassword );
+router.route('/top-players').get( topPlayers );
 router.route('/search/mail').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findByEmail );
 router.route('/search/:id').get( verifyAccessToken, preAuthorize(authorities.clientSearch.code), findById );
 router.route('/profile').get( verifyAccessToken, myProfile );

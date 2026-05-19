@@ -555,6 +555,21 @@ const playerInfo = async (nano_id) => {
     }
 }
 
+const topPlayers = async () => {
+    try {
+        const [topFivePlayers, topFivePlayersMetadata] = await db.sequelize.query(
+            `select count(ugg.user_id) as games, fname, lname, lname, hcp, key_hash, dp.user_id, countries.name as country from 
+            user_game_group as ugg join users on users.id = ugg.user_id join rockmade.countries on users.country_id = countries.id
+            left outer join dp_keyhash as dp on dp.user_id = users.id group by ugg.user_id, dp.key_hash order by games desc limit 4`
+        );
+        return topFivePlayers;
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+}
+
 // for use by players to search other players
 const playerSearch = async (id, hc, cursor, page_size) => {
     let pageSize = page_size * 1;
@@ -806,6 +821,7 @@ module.exports = {
     listClients,
     changeClientStatus,
     search,
+    topPlayers,
     playerSearch, 
     playerQryStrSearch,
     gameUserSearch,

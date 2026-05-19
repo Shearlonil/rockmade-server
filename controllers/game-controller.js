@@ -39,6 +39,15 @@ const findGameHistoryById = async (req, res) => {
     }
 };
 
+// fetching top 3-5 golf players in home page
+const upcomingTournaments = async (req, res) => {
+    try {
+        res.status(200).json(await gameService.upcomingTournaments());
+    } catch (error) {
+        return res.status(400).json({'message': error.message});
+    }
+};
+
 const userHistoryGames = async (req, res) => {
     try {
         routePositiveNumberMiscParamSchema.validateSync(req.query.page_size);
@@ -207,6 +216,7 @@ const updateGameSpices = async (req, res) => {
 };
 
 router.route('/rounds/history/:nano_id').get( verifyAccessToken, findGameHistoryById );
+router.route('/tournaments/upcoming').get( upcomingTournaments );
 router.route('/rounds/ongoing/:nano_id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/ongoing/:nano_id/end').post( verifyAccessToken, endGame );
 router.route('/rounds/ongoing/:nano_id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );

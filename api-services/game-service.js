@@ -146,6 +146,24 @@ const findGameHistoryById = async nano_id => {
     }
 };
 
+const upcomingTournaments = async () => {
+    try {
+        const currentDate = format(new Date(), "yyyy-MM-dd");
+        const [upcomingGames, upcomingGamesMetadata] = await db.sequelize.query(
+            `select games.name, games.date, mode, courses.name from games join courses on games.course_id = courses.id 
+            where games.status = 1 and games.date >= :currentDate`,
+            {
+                replacements: { currentDate },
+            }
+        );
+        return upcomingGames;
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
+};
+
 const userHistoryGames = async (user_id, game_group_id, pageSize) => {
     /*  CURSOR BASED PAGINATION
         ref:
@@ -1091,6 +1109,7 @@ const generateGameCode = async () => {
 module.exports = {
     findOngoingRoundById,
     findGameHistoryById,
+    upcomingTournaments,
     userHistoryGames,
     userHistoryGamesSearch,
     createGame,
