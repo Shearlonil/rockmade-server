@@ -60,26 +60,35 @@ const findSubById = async id => {
 };
 
 const findByEmail = async email => {
-    const user = await User.findOne({
-        where: { email },
-        include: [
-            {
-                model: Course,
-            },
-            {
-                model: ImgKeyHash,
-            },
-        ]
-    });
-    const [lastSub, lastSubMetadata] = await db.sequelize.query(
-        `select sub.plan_id, sub.createdAt, sp.name from subscriptions sub join sub_plans sp on sp.id = sub.plan_id where 
-        sub.subscriber_id = :subscriber_id and sub.used = true ORDER BY sub.createdAt DESC limit 1`,
-        {
-            replacements: { subscriber_id: user.id },
+    try {
+        const user = await User.findOne({
+            where: { email },
+            include: [
+                {
+                    model: Course,
+                },
+                {
+                    model: ImgKeyHash,
+                },
+            ]
+        });
+        if(!user){
+            throw new Error('Invalid credentials');
         }
-    );
-    user.lastSub = lastSub[0];
-    return user;
+        const [lastSub, lastSubMetadata] = await db.sequelize.query(
+            `select sub.plan_id, sub.createdAt, sp.name from subscriptions sub join sub_plans sp on sp.id = sub.plan_id where 
+            sub.subscriber_id = :subscriber_id and sub.used = true ORDER BY sub.createdAt DESC limit 1`,
+            {
+                replacements: { subscriber_id: user.id },
+            }
+        );
+        user.lastSub = lastSub[0];
+        return user;
+    } catch (error) {
+        // If the execution reaches this line, an error occurred.
+        // The transaction has already been rolled back automatically by Sequelize!
+        throw new Error(error.message); // rethrow the error for front-end 
+    }
 };
 
 const updateEmail = async (user_id, nano_id) => {
@@ -98,7 +107,7 @@ const updateEmail = async (user_id, nano_id) => {
             ]
         });
         if(!client) {
-            throw new Error("Account Not Found");
+            throw new Error("Invalid Credentials");
         }
         const emailToUpdate = await EmailsToUpdate.findOne({ 
             where: { nano_id }
@@ -731,9 +740,9 @@ const gameUserSearch = async (prop) => {
         attributes: ['id', 'nano_id', 'fname', 'lname', 'hcp' ],
         where: { 
             status: true,
-            sub_expiration: {
-                [Op.gte]: sub
-            },
+            // sub_expiration: {
+            //     [Op.gte]: sub
+            // },
             [Op.or]: {
                 fname: {
                     [Op.like]: `%${str}%`

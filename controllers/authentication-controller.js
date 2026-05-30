@@ -7,7 +7,7 @@ const staffService = require('../api-services/staff-service');
 const otpMailService = require('../api-services/mail-otp-service');
 const tokenService = require('../api-services/token-service');
 const mailService = require('../api-services/mailer-service');
-const { createRefreshToken, createClientAccessToken, logout, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
+const { createRefreshToken, createClientAccessToken, logout, logoutAll, createStaffAccessToken, createOTPtoken, handleRefresh } = require('../middleware/jwt');
 const { generateOTP } = require('../utils/otp-generator');
 const { routeEmailParamSchema, routePasswordParamSchema } = require('../yup-schemas/request-params');
 const { encrypt, decrypt } = require('../utils/crypto-helper');
@@ -142,6 +142,7 @@ router.route('/client').post(clientLogin);
 router.route('/staff').post(staffLogin);
 router.route('/otp/:email').post(otp);
 router.route('/logout').get( logout, logOut );
+router.route('/logout/all').get( logoutAll, logOut );
 router.route('/refresh').get(handleRefresh, refresh);
 
 module.exports = router

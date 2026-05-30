@@ -2,6 +2,7 @@ const db = require('../config/entities-config');
 const { QueryTypes } = db.sequelize;
 const { nanoid } = require('nanoid');
 
+const Course = db.courses;
 const Contest = db.contests;
 const Hole = db.holes;
 const HoleContest = db.courseHolesContests;
@@ -77,12 +78,19 @@ const update = async (contest) => {
 const updateHoles = async ({contests, course_id}) => {
     try {
         await db.sequelize.transaction( async (t) => {
+            const course = await Course.findOne({
+                where: { nano_id: course_id }
+            });
+
+            if(!course){
+                throw new Error("Invalid Course specified");
+            }
             for (const c of contests) {
                 const contest = await Contest.findByPk(c.contest_id);
                 if(contest){
                     for (const hole_id of c.holes) {
                         const h = await Hole.findByPk(hole_id);
-                        await HoleContest.create({hole_id: h.id, contest_id: contest.id, course_id}, { transaction: t });
+                        await HoleContest.create({hole_id: h.id, contest_id: contest.id, course_id: course.id}, { transaction: t });
                     }
                 }else {
                     throw new Error("Invalid Contest specified");

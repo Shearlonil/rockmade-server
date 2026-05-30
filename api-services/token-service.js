@@ -16,6 +16,22 @@ const removeToken = async token => {
     });
 };
 
+// for removing all associated tokens attached to a particular user..... signing out all devices
+const removeAllTokens = async token => {
+    const userToken = await RefreshToken.findOne({
+        where: {
+            token,
+        }
+    });
+    if(userToken){
+        await RefreshToken.destroy({
+            where: {
+                user_id: userToken.user_id
+            }
+        });
+    }
+};
+
 const findToken = async token => {
     return await RefreshToken.findOne({
         where: {
@@ -36,6 +52,7 @@ const findUserToken = async (user_id, user_type) => {
 module.exports = {
     addToken,
     removeToken,
+    removeAllTokens,
     findToken,
     findUserToken,
 };

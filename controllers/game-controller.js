@@ -29,6 +29,15 @@ const findOngoingRoundById = async (req, res) => {
     }
 };
 
+const verifyViewCode = async (req, res) => {
+    try {
+        routeStringMiscParamSchema.validateSync(req.params.view_code);
+        res.status(200).json(await gameService.verifyViewCode(req.params.view_code));
+    } catch (error) {
+        return res.status(404).json({'message': error.message});
+    }
+};
+
 const findGameHistoryById = async (req, res) => {
     try {
         // id passed is nano_id
@@ -217,6 +226,7 @@ const updateGameSpices = async (req, res) => {
 
 router.route('/rounds/history/:nano_id').get( verifyAccessToken, findGameHistoryById );
 router.route('/tournaments/upcoming').get( upcomingTournaments );
+router.route('/rounds/ongoing/view-code/verify/:view_code').get( verifyAccessToken, verifyViewCode );
 router.route('/rounds/ongoing/:nano_id').get( verifyAccessToken, findOngoingRoundById );
 router.route('/rounds/ongoing/:nano_id/end').post( verifyAccessToken, endGame );
 router.route('/rounds/ongoing/:nano_id/players/add').post( verifyAccessToken, validate(addPlayerSchema), addPlayers );

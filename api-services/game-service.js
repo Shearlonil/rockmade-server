@@ -146,12 +146,41 @@ const findGameHistoryById = async nano_id => {
     }
 };
 
+const verifyViewCode = async view_code => {
+    try {
+        return await GameCodes.findOne({
+            where: { 
+                view_code,
+            },
+            include: [
+                {
+                    model: Game,
+                    where: { 
+                        status: {
+                            [Op.between] : [1, 2]
+                        } 
+                    },
+                },
+            ]
+        });
+    } catch (error) {
+        throw new Error("Game not found");
+    }
+}
+
 const upcomingTournaments = async () => {
+    /*  Random fetch reference:
+        https://www.quora.com/How-can-we-get-randomly-different-set-of-rows-or-values-each-time-from-MySQL-table
+        other tips:
+        https://www.geeksforgeeks.org/how-to-select-random-row-in-mysql/
+        https://vincentbogousslavsky.com/post/getting-items-from-a-realtime-database-in-a-random-order
+        https://stackoverflow.com/questions/24046003/getting-random-data-from-a-mysql-database-but-not-repeating-data/24046401#24046401
+    */
     try {
         const currentDate = format(new Date(), "yyyy-MM-dd");
         const [upcomingGames, upcomingGamesMetadata] = await db.sequelize.query(
-            `select games.name, games.date, mode, courses.name from games join courses on games.course_id = courses.id 
-            where games.status = 1 and games.date >= :currentDate`,
+            `select games.name as game_name, games.date, mode, courses.name as course_name, courses.location from games join courses on games.course_id = courses.id 
+            where games.status = 1 and games.date >= :currentDate ORDER BY RAND() < 10^2/(select count(*) from games) limit 3`,
             {
                 replacements: { currentDate },
             }
@@ -1109,6 +1138,7 @@ const generateGameCode = async () => {
 module.exports = {
     findOngoingRoundById,
     findGameHistoryById,
+    verifyViewCode,
     upcomingTournaments,
     userHistoryGames,
     userHistoryGamesSearch,
