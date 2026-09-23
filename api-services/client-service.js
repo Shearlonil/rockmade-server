@@ -568,7 +568,7 @@ const topPlayers = async () => {
     try {
         const [topFivePlayers, topFivePlayersMetadata] = await db.sequelize.query(
             `select count(ugg.user_id) as games, fname, lname, lname, hcp, key_hash, dp.user_id, countries.name as country from 
-            user_game_group as ugg join users on users.id = ugg.user_id join rockmade.countries on users.country_id = countries.id
+            user_game_group as ugg join users on users.id = ugg.user_id join countries on users.country_id = countries.id
             left outer join dp_keyhash as dp on dp.user_id = users.id group by ugg.user_id, dp.key_hash order by games desc limit 4`
         );
         return topFivePlayers;

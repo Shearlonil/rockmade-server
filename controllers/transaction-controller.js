@@ -44,7 +44,7 @@ const webhook = async (req, res) => {
 
 const callback = async (req, res) => {
     try {
-        // TODO: change to process.env.BASE_URL for production
+        //  TODO: change to process.env.BASE_URL for production
         /*  Redirecting ref:
             https://stackoverflow.com/questions/19035373/how-do-i-redirect-in-expressjs-while-passing-some-context
         */
